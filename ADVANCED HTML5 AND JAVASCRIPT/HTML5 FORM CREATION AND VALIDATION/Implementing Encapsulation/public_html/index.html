@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        function Mammal(species, sound) {
+            this.species = species;
+            this.sound = sound;
+        }
+
+        Mammal.prototype = {
+            constructor: Mammal,
+            makeSound: function() { // Corrected the syntax here
+                console.log("I am a " + this.species + " and I " + this.sound);
+            }
+        };
+
+        var cat = new Mammal("Cat", "Meow"); // Corrected "Meouw" to "Meow"
+        console.log(cat);
+        
+        cat.makeSound();
+        
+        var dog = new Mammal("Dog", "Woof");
+        dog.makeSound();
+    </script>
+</head>
+<body>
+    
+</body>
+</html>

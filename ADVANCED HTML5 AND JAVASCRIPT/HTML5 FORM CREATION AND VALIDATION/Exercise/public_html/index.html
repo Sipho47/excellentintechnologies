@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <input type="text" id="inputValue" placeholder="Enter a number">
+    <button onclick="addValue()">Add</button>
+    <p id="result">Total: 0</p>
+
+    <script>
+        // Step 1: Create the JavaScript object
+        const calculator = {
+            total: 0,
+            add: function (number) {
+                if (typeof number === 'number') {
+                    this.total += number;
+                }
+            },
+            getTotal: function () {
+                return this.total;
+            }
+        };
+
+        // Step 3: Add validation to ensure the user only enters numbers
+        function addValue() {
+            const inputValue = document.getElementById('inputValue').value;
+            const number = parseFloat(inputValue);
+            if (!isNaN(number)) {
+                calculator.add(number);
+                document.getElementById('inputValue').value = ''; // Clear the input box after adding
+                document.getElementById('result').textContent = 'Total: ' + calculator.getTotal();
+            } else {
+                alert('Please enter a valid number.');
+            }
+        }
+    </script>
+</body>
+</html>
