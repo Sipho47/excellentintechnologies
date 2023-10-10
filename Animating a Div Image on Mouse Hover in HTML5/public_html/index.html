@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        #menu {
+            width: 800px;
+            height: 40px;
+            font-family: Calibri;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            color: #ffffff;
+            border: 1px solid black;
+        }
+
+        #nav {
+            display: flex;
+            background-color: blue;
+        }
+
+        .nav-item {
+            width: 100px;
+            height: 40px;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+            margin-right: 10px;
+            background-color: blue;
+            cursor: pointer;
+            transition: transform 0.3s; /* Added transition property */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .nav-item:hover {
+            transform: scale(1.1); /* Added transform property on hover */
+        }
+
+        #home {
+            background-image: url("home.png");
+        }
+
+        #about {
+            background-image: url("about.png");
+        }
+
+        #faq {
+            background-image: url("faq.png");
+        }
+
+        #careers {
+            background-image: url("careers.png");
+        }
+
+        #contact {
+            background-image: url("contact.png");
+        }
+
+        /* Added contact details styling */
+        #contact-details {
+            display: none;
+            padding: 10px;
+            background-color: #f9f9f9;
+            color: #333333;
+            font-family: Calibri;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+    <script>
+        // Function to toggle display of home details
+        function toggleHomeDetails() {
+            var homeDetails = document.getElementById("home-details");
+            homeDetails.style.display = homeDetails.style.display === "none" ? "block" : "none";
+        }
+        
+         // Function to toggle display of FAQ details
+        function toggleFAQDetails() {
+            var faqDetails = document.getElementById("faq-details");
+            faqDetails.style.display = faqDetails.style.display === "none" ? "block" : "none";
+        }
+        
+         // Function to toggle display of about details
+        function toggleAboutDetails() {
+            var aboutDetails = document.getElementById("about-details");
+            aboutDetails.style.display = aboutDetails.style.display === "none" ? "block" : "none";
+        }
+        
+         // Function to toggle display of careers details
+        function toggleCareersDetails() {
+            var careersDetails = document.getElementById("careers-details");
+            careersDetails.style.display = careersDetails.style.display === "none" ? "block" : "none";
+        }
+
+        // Function to toggle display of contact details
+        function toggleContactDetails() {
+            var contactDetails = document.getElementById("contact-details");
+            contactDetails.style.display = contactDetails.style.display === "none" ? "block" : "none";
+        }
+    </script>
+</head>
+<body>
+    <div id="nav">
+        <div class="nav-item" id="home" onclick="toggleHomeDetails()">Home</div>
+        <div class="nav-item" id="faq" onclick="toggleFAQDetails()">FAQ</div>
+        <div class="nav-item" id="about" onclick="toggleAboutDetails()">About</div>
+        <div class="nav-item" id="careers" onclick="toggleCareersDetails()">Careers</div>
+        <div class="nav-item" id="contact" onclick="toggleContactDetails()">Contact</div>
+    </div>
+    
+    <!-- Added home details section -->
+    <div id="home-details" style="display: none;">
+        <p>What is Lorem Ipsum?
+        Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has
+        been the industry's standard dummy text ever since the 1500s, when an unknown printer took
+        a galley of type and scrambled it to make a type specimen book. It has survived not only 
+        five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. 
+        It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum 
+        passages, and more recently with desktop publishing software like Aldus PageMaker including 
+        versions of Lorem Ipsum.
+        </p>
+    </div>
+    
+    <!-- Added FAQ details section -->
+    <div id="faq-details" style="display: none;">
+        <p>Frequently Asked Questions:
+        Here are some common questions and answers.
+        </p>
+    </div>
+    
+    <!-- Added about details section -->
+    <div id="about-details" style="display: none;">
+        <p>About Us:
+        We are a company dedicated to providing quality products and services.
+        </p>
+    </div>
+    
+    <!-- Added careers details section -->
+    <div id="careers-details" style="display: none;">
+        <p>Career Opportunities:
+        Join our team and be part of an exciting journey.
+        </p>
+    </div>
+    
+    <!-- Added contact details section -->
+    <div id="contact-details" style="display: none;">
+        <p>Cell: 0814652476</p>
+        <p>Email: sipho35@gmail.com</p>
+        <p>467 Vanilla Street, Nelspruit, 1200</p>
+    </div>
+</body>
+</html>
