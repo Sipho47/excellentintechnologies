@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <!-- Your HTML content here -->
+
+    <script>
+        // JavaScript code for WebSocket communication
+        const socket = new WebSocket('ws://your-websocket-server-url');
+
+        socket.onopen = () => {
+            console.log('WebSocket connection opened');
+            // Send a message to the server
+            socket.send('Hello, server!');
+        };
+
+        socket.onmessage = (event) => {
+            const serverResponse = event.data;
+            console.log('Received from server:', serverResponse);
+            // Process the response from the server here
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed');
+        };
+    </script>
+</body>
+</html>
