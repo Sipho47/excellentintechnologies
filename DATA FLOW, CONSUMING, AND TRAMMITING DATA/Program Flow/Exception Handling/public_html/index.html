@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <input type="text" id="input" />
+    <button id="check" onclick="check()">Check</button>
+    <p id="demo"></p>
+    <p id="done"></p>
+    
+    <script>
+        function check() {
+            try {
+                var input = document.getElementById('input').value;
+                if (input === '') {
+                    throw "You didn't enter anything";
+                }
+                document.getElementById('demo').innerHTML = "Input: " + input;
+                document.getElementById('done').innerHTML = "Check completed";
+                
+                var value = parseInt(input);  // Parse input as an integer
+                if (value > 5) {
+                    throw "too large";
+                } else if (value < 0) {
+                    throw "too small";
+                } else {
+                    document.getElementById('demo').innerHTML = "You entered a positive value";
+                }
+            } catch (err) {
+                document.getElementById('demo').innerHTML = err;
+            } finally {
+                document.getElementById('done').innerHTML = "finished";
+            }
+        }
+    </script>
+</body>
+</html>
