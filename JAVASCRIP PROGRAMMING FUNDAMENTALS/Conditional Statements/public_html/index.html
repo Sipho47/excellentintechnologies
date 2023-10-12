@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="styles.css">
+        <script>
+            window.onload = function(e) {
+                var paragraphs = document.getElementsByTagName("p");
+                console.log(paragraphs[0].innerHTML);
+                
+                var var1 = 3;
+                var var2 = 4;
+                
+                var1 += 7;
+                console.log('var1', var1);
+                
+                console.log(var1 !==10);
+                
+                console.log('sqrt:', Math.sqrt(var1));
+                console.log('ceil', Math.ceil(Math.sqrt(var1)));
+                
+                if (var1 === 6) {
+                    console.log('If statement is true');
+                }else if(var1 === 10){
+                    console.log('If is false, elseif statement');
+                }
+            };
+        </script>
+    </head>
+    <body>
+        <p>Some blurb. Fusce congue faucibus gravida. Proin</p>
+    </body>
+</html>
