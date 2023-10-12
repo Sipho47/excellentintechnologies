@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+        <script>
+            $(document).ready(function() {
+                $("li").filter(":first-child").css("background-color", "red");
+                
+                $("li").filter(function(index) {
+                    return $("span", this).length === 1;
+                })
+                .css("background-color", "green");
+            });
+        </script>
+    </head>
+    <body>
+        <ul>
+            <li>list item 1</li>
+            <li>list item 2</li>
+            <li>list item 3 = <span>span content</span></li>
+            <li>list item 4 = <span>span content 1 </span> and <span>span content</span></li>
+            <li>list item 5</li>
+            <li>list item 6</li>
+        </ul>
+    </body>
+</html>
