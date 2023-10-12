@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        div {
+            width: 100px;
+            height: 100px;
+            background-color: red;
+            position: absolute;
+            animation-name: myAnimation;
+            animation-duration: 4s;
+            animation-delay: 2s;
+            animation-direction: alternate;
+            animation-iteration-count: infinite;
+        }
+        .ease-in {
+            animation-timing-function: ease-in;
+        }
+        .linear {
+            animation-timing-function: linear;
+        }
+        @keyframes myAnimation {
+            0% {
+                background-color: red;
+                left: 0px;
+                top: 0px;
+            }
+            25% {
+                background-color: yellow;
+                left: 200px;
+                top: 0px;
+            }
+            50% {
+                background-color: green; /* Fixed typo: "geen" to "green" */
+                left: 200px;
+                top: 200px;
+            }
+            75% {
+                background-color: blue;
+                left: 0px;
+                top: 200px;
+            }
+            100% {
+                background-color: red;
+                left: 0px;
+                top: 0px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ease-in"></div>
+    <div class="linear"></div>
+</body>
+</html>

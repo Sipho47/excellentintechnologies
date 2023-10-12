@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <svg width="300" height="300" style="border: 1px solid;">
+        <!-- Pattern -->
+        <defs>
+            <pattern id="pattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                <rect width="20" height="20" style="fill: #ffcc00;"></rect>
+                <circle cx="10" cy="10" r="5" style="fill: #ff0000;"></circle>
+            </pattern>
+        </defs>
+        
+        <!-- Gradient -->
+        <defs>
+            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color: #ff0000; stop-opacity: 1;"></stop>
+                <stop offset="100%" style="stop-color: #0000ff; stop-opacity: 1;"></stop>
+            </linearGradient>
+        </defs>
+        
+        <!-- Rectangles -->
+        <rect x="150" y="150" height="100" width="100" style="stroke: #000; fill: url(#pattern); fill-opacity: 0.8;"></rect>
+        
+        <rect x="50" y="150" height="100" width="100" style="stroke: #000; fill: url(#gradient); transform-origin: 200px 200px; transform: scale(0.5) translate(50px) rotate(45deg)"></rect>
+    </svg>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <svg width="300" height="300" style="border: 1px solid;">
+        <rect x="150" y="150" height="100" width="100" style="stroke: #000; fill: #000000; fill-opacity: 0.2; stroke-opacity: 0.2;"></rect>
+        
+        <rect x="50" y="150" height="100" width="100" style="stroke: #000; fill: blue; transform-origin: 200px 200px; transform: scale(0.5) translate(50px) rotate(45deg)"></rect>
+        
+        <defs>
+            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color: #FF0000;"/>
+                <stop offset="50%" style="stop-color: #00FF00;"/>
+                <stop offset="100%" style="stop-color: #0000FF;"/>
+            </linearGradient>
+        </defs>
+        
+        <text x="150" y="170" font-family="Arial" font-size="20" fill="url(#gradient)" text-anchor="middle" transform="rotate(-45,150,170)">Hello World!</text>
+    </svg>
+</body>
+</html>
