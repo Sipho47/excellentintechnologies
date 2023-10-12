@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <p>Time: <output id="result"></output></p>
+        <button onclick="startWorker1()">Start Worker1</button>
+        <button onclick="stopWorker1()">Stop Worker1</button>
+        
+        <script>
+            var w1;
+            
+            function startWorker1() {
+                if (typeof(w1) === "undefined") {
+                    w1 = new Worker("worker.js");
+                    w1.onmessage = function(event) {
+                        document.getElementById("result").textContent = event.data;
+                    };
+                }
+            }
+            
+            function stopWorker1() {
+                if (typeof(w1) !== "undefined") {
+                    w1.terminate();
+                    w1 = undefined;
+                    document.getElementById("result").textContent = '';
+                }
+            }
+        </script>
+    </body>
+</html>

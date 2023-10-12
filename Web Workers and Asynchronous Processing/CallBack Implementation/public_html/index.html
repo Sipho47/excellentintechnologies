@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body>
+    <p>Time: <output id="result"></output></p>
+    <button onclick="startWorker1()">Start Worker1</button>
+    <input type="number" id="secondsInput" placeholder="Enter seconds" />
+    <button onclick="sendMessage1()">Send Message1</button>
+    <button onclick="stopWorker1()">Stop Worker1</button>
+
+    <script>
+        var w1;
+
+        function startWorker1() {
+            if (typeof w1 === "undefined") {
+                if (typeof Worker !== "undefined") {
+                    w1 = new Worker("demo_workers.js"); // Replace "demo_workers.js" with the correct worker script file name or path
+                    w1.onmessage = function (evt) {
+                        document.getElementById("result").innerHTML = evt.data;
+                    };
+                } else {
+                    alert("Sorry, your browser doesn't support Web Workers.");
+                }
+            }
+        }
+
+        function sendMessage1() {
+            if (w1) {
+                var seconds = document.getElementById("secondsInput").value;
+                var targetDate = new Date(Date.now() + seconds * 1000); // Calculate the target date by adding seconds to the current date
+                var currentDate = null;
+
+                function sleep(ms) {
+                    return new Promise(resolve => setTimeout(resolve, ms));
+                }
+
+                (async function () {
+                    do {
+                        currentDate = new Date();
+                        w1.postMessage(targetDate.getTime()); // Send the target date as a message to the worker
+                        await sleep(1000); // Use 'await' to pause execution for 1000 milliseconds
+                    } while (currentDate.getTime() < targetDate.getTime()); // Compare the time values of currentDate and targetDate
+                })();
+            }
+        }
+
+        function stopWorker1() {
+            if (w1) {
+                w1.terminate();
+                w1 = undefined;
+            }
+        }
+    </script>
+</body>
+</html>

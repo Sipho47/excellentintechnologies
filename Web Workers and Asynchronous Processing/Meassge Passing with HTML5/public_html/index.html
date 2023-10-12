@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Time: <output id="result"></output></p>
+    <button onclick="startTimer()">Start Timer</button>
+    <button onclick="stopTimer()">Stop Timer</button>
+
+    <script>
+        var timer;
+        var startTime;
+
+        function startTimer() {
+            startTime = Date.now();
+            timer = setInterval(updateTime, 1000);
+            updateTime();
+        }
+
+        function updateTime() {
+            var currentTime = Date.now() - startTime;
+            var seconds = Math.floor(currentTime / 1000);
+            var minutes = Math.floor(seconds / 60);
+            seconds %= 60;
+            document.getElementById("result").textContent = minutes + "m " + seconds + "s";
+        }
+
+        function stopTimer() {
+            if (typeof(timer) !== "undefined") {
+                clearInterval(timer);
+                timer = undefined;
+            }
+        }
+    </script>
+</body>
+</html>
