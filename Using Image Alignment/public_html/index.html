@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="styles/styles.css" />
+    <style>
+        body {
+            background-color: #ff0000; /* Change the background color here */
+            background-image: url("background-image.jpg"); /* Replace with the URL or path of your desired background image */
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        #nav {
+            display: flex;
+            background-color: blue;
+        }
+
+        .nav-item {
+            width: 100px;
+            height: 40px;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+            margin-right: 10px;
+            cursor: pointer;
+            transition: transform 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .nav-item:hover {
+            transform: scale(1.1);
+        }
+
+        #home {
+            background-image: url("home.png");
+        }
+
+        #about {
+            background-image: url("about.png");
+        }
+
+        #faq {
+            background-image: url("faq.png");
+        }
+
+        #careers {
+            background-image: url("careers.png");
+        }
+
+        #contact {
+            background-image: url("contact.png");
+        }
+
+        #wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        #rightpane {
+            background-color: #b7b1d5;
+            width: 250px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        #banner {
+            width: 100%;
+            height: 100px;
+            background-color: #ffcc00; /* Change the background color of the banner here */
+            margin-bottom: 10px;
+        }
+
+        #content {
+            display: flex;
+            flex-wrap: wrap;
+            column-gap: 20px; /* Gap between columns */
+        }
+        
+        .column {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .imgleft {
+            float: right;
+            padding-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="wrapper">
+        <div id="banner"></div>
+        <div id="nav">
+            <div id="home" class="nav-item">Home</div>
+            <div id="faq" class="nav-item">FAQ</div>
+            <div id="about" class="nav-item">About Us</div>
+            <div id="careers" class="nav-item">Careers</div>
+            <div id="contact" class="nav-item">Contact Us</div>
+        </div>
+        <div id="content">
+            <div class="column">
+                <h1>Column 1</h1>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla auctor auctor magna, sit amet molestie tortor fringilla ac. Nam nec pharetra justo, vel fringilla est. Suspendisse ut consectetur dolor. Vestibulum at ex pulvinar, dapibus justo non, consequat lacus. Phasellus ac sem in lectus fringilla consectetur. Vivamus ullamcorper posuere tellus, nec aliquam metus vestibulum et. Curabitur non ante placerat, viverra lectus in, venenatis nunc. Nullam cursus fermentum lacus. Duis vel gravida mauris. Morbi id elementum lacus. Suspendisse et aliquam urna, at aliquam nisl.</p>
+                <p>Quisque sit amet vestibulum mi, sit amet lobortis libero. Cras venenatis, nulla ac semper pellentesque, urna odio interdum elit, ac efficitur sem lorem nec felis. Curabitur venenatis felis lectus, in tristique ligula varius vitae. Mauris cursus lorem sapien, ut consectetur enim convallis id. Nunc malesuada est at nulla pellentesque, ut pulvinar turpis ultricies. Ut rhoncus turpis quis lorem facilisis auctor. Aenean pretium augue vitae gravida ultrices. Donec dignissim faucibus quam in fermentum. Vestibulum viverra fermentum libero, a fringilla lectus gravida nec. Cras aliquam, nisl eu tincidunt sollicitudin, risus nunc ultrices arcu, vitae bibendum dui mauris ac felis. Morbi hendrerit, justo ac accumsan rutrum, massa felis mattis velit, ac pulvinar metus enim eu est. Sed interdum lacus ac ex vestibulum, non iaculis risus consequat. Ut pharetra elit ligula, in suscipit arcu iaculis non. Sed rutrum leo id lacus semper fringilla.</p>
+            </div>
+            <div class="column">
+                <h1>Column 2</h1>
+                <div style="float: right; padding-left: 10px;">
+                    <img src="office.jpg" style="width: 150px;" />
+                </div>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla auctor auctor magna, sit amet molestie tortor fringilla ac. Nam nec pharetra justo, vel fringilla est. Suspendisse ut consectetur dolor. Vestibulum at ex pulvinar, dapibus justo non, consequat lacus. Phasellus ac sem in lectus fringilla consectetur. Vivamus ullamcorper posuere tellus, nec aliquam metus vestibulum et. Curabitur non ante placerat, viverra lectus in, venenatis nunc. Nullam cursus fermentum lacus. Duis vel gravida mauris. Morbi id elementum lacus. Suspendisse et aliquam urna, at aliquam nisl.</p>
+                <p>Quisque sit amet vestibulum mi, sit amet lobortis libero. Cras venenatis, nulla ac semper pellentesque, urna odio interdum elit, ac efficitur sem lorem nec felis. Curabitur venenatis felis lectus, in tristique ligula varius vitae. Mauris cursus lorem sapien, ut consectetur enim convallis id. Nunc malesuada est at nulla pellentesque, ut pulvinar turpis ultricies. Ut rhoncus turpis quis lorem facilisis auctor. Aenean pretium augue vitae gravida ultrices. Donec dignissim faucibus quam in fermentum. Vestibulum viverra fermentum libero, a fringilla lectus gravida nec. Cras aliquam, nisl eu tincidunt sollicitudin, risus nunc ultrices arcu, vitae bibendum dui mauris ac felis. Morbi hendrerit, justo ac accumsan rutrum, massa felis mattis velit, ac pulvinar metus enim eu est. Sed interdum lacus ac ex vestibulum, non iaculis risus consequat. Ut pharetra elit ligula, in suscipit arcu iaculis non. Sed rutrum leo id lacus semper fringilla.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

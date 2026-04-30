@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.3/jquery.min.js"></script>
+        <script>
+            $(document).ready(function() {
+                $("div.outer-outer").css("background-color", "red");
+                $("div.outer-inner").css("background-color", "blue");
+                $("div.outer, div.inner-inner").css("background-color", "yellow");
+            });
+        </script>
+        <style>
+            /* Removed the incomplete "di..." selector */
+            /* Corrected the class name for the main section */
+            /* Corrected the class name for the footer section */
+            div.outer-outer {
+                background-color: red;
+            }
+            
+            div.outer-outer div.inner {
+                background-color: blue;
+            }
+            
+            div.outer, div.inner-inner {
+                background-color: yellow;
+            }
+            
+            /* Changed the ID selector to class selector for the main section */
+            div.main-section {
+                background-color: green;
+            }
+            
+            /* Changed the class name to correct it */
+            div.footer-section {
+                background-color: purple;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="outer-outer">
+            Outer outer
+            <div class="outer">
+                Outer
+                <div class="inner">
+                    Inner
+                    <div class="inner-inner">
+                        Inner inner
+                    </div>
+                </div>
+                <!-- The main section should be inside the outer-outer div -->
+                <div class="main-section">
+                    Main section
+                </div>
+            </div>
+            <!-- The footer section should be inside the outer-outer div -->
+            <div class="footer-section">
+                Footer section
+            </div>
+        </div>
+    </body>
+</html>

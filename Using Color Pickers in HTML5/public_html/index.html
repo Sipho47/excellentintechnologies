@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Color Panel</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        window.onload = function() {
+            document.getElementById("background-color").addEventListener('change', displayColor, false);
+            document.getElementById("text-color").addEventListener('change', displayColor, false);
+        }
+        
+        function displayColor()
+        {
+            document.getElementById('colorOut').innerHTML = document.getElementById().value;
+        }
+
+        function displayColor() {
+            var backgroundColor = document.getElementById("background-color").value;
+            var textColor = document.getElementById("text-color").value;
+            document.body.style.backgroundColor = backgroundColor;
+            document.body.style.color = textColor;
+        }
+    </script>
+</head>
+<body>
+    <label for="background-color">Background Color:</label>
+    <input type="color" id="background-color" name="background-color">
+
+    <label for="text-color">Text Color:</label>
+    <input type="color" id="text-color" name="text-color">
+
+    <!-- Your other content here -->
+</body>
+</html>

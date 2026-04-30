@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HTML5</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {
+                font-family: Calibri;
+            }
+            #marquee {
+                width: 600px;
+                height: 40px;
+                border: 1px solid black;
+                padding-left: 15px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="marquee"></div>
+        <script type="text/javascript">
+            var i = 0;
+            var myText = "Welcome to our site! This week only - 20% off all storage devices! Check out our storage section.";
+            var sequence = setInterval(update, 100);
+
+            function update() {
+                i++;
+                if (i > myText.length) {
+                    i = 0;
+                }
+                var marqueeText = myText.substring(i, myText.length);
+                marqueeText += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+                marqueeText += myText.substring(0, i);
+                document.getElementById("marquee").innerHTML = marqueeText;
+            }
+        </script>
+    </body>
+</html>

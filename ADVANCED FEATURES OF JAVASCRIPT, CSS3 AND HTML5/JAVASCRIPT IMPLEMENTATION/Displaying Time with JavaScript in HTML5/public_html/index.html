@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HTML5</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script type="text/javascript">
+            function displayTime() {
+                now = new Date();
+                document.getElementById("output").innerHTML = now;
+                month = now.getMonth();
+                day = now.getDay();
+                date = now.getDate();
+                year = now.getFullYear();
+                // time is the number of milliseconds since midnight, January 1, 1970
+                time = now.getTime();
+                document.getElementById("output").innerHTML += '<br><br>' + "month: " + month + "\n\
+        day: " + day + "date: " + date + "year: " + year + "time: " + time;
+            }
+        </script>
+    </head>
+    <body>
+        <button onclick="displayTime()">Show Time</button><br><br>
+        <span id="output"></span>
+    </body>
+</html>

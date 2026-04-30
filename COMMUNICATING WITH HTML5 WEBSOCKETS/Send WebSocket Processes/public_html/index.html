@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        a {
+            display: block;
+        }
+    </style>
+
+    <script type="text/javascript">
+        var ws;
+
+        function WebSocketOpen() {
+            if ("WebSocket" in window) {
+                ws = new WebSocket("ws://your_server_address:8080/echo/echoes");
+
+                ws.onopen = function() {
+                    alert("WebSocket is connected");
+                    // Send a message to the server when the WebSocket is open
+                    sendMessageToServer("Hello, server!");
+                };
+
+                ws.onmessage = function(event) {
+                    // Handle incoming messages from the server
+                    var receivedMessage = event.data;
+                    alert("Received message from server: " + receivedMessage);
+                };
+
+                ws.onclose = function() {
+                    alert("WebSocket is closed");
+                };
+
+            } else {
+                alert("WebSocket NOT supported by your browser");
+            }
+        }
+
+        function WebSocketClose() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            } else {
+                alert("WebSocket is not open or not supported by your browser");
+            }
+        }
+
+        // Function to send a message to the server
+        function sendMessageToServer(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(message);
+            } else {
+                alert("WebSocket is not open or not supported by your browser");
+            }
+        }
+    </script>
+</head>
+<body>
+    <a href="javascript:WebSocketOpen()">Open WebSocket</a>
+    <a href="javascript:WebSocketClose()">Close WebSocket</a>
+
+    <script type="text/javascript">
+        // This part of the code is responsible for receiving messages from the server.
+        // You can add this code inside the <script> tag in the <body> section.
+
+        // The 'ws' variable must be accessible from this script, so we can handle incoming messages.
+
+        // Function to handle incoming messages from the server
+        function handleIncomingMessage(event) {
+            var receivedMessage = event.data;
+            alert("Received message from server: " + receivedMessage);
+        }
+
+        // Check if 'ws' is defined and not null
+        if (ws) {
+            // Attach the 'handleIncomingMessage' function to the 'onmessage' event
+            ws.onmessage = handleIncomingMessage;
+        } else {
+            alert("WebSocket is not initialized.");
+        }
+    </script>
+</body>
+</html>

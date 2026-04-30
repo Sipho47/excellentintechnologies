@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body>
+    <script>
+      function doSth(p) {
+        p.innerHTML = 'Hello world';
+      }
+    </script>
+    <p onclick="this.innerHTML = 'Hello world';">Click me</p>
+    <p onclick="doSth(this)">Click me</p>
+    <p onclick="(function(p) { p.innerHTML = 'Hello world'; })(this)">Click me</p>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <button type="button" onclick="sendDoc()">Send</button>
+    <p id="demo"></p>
+
+    <script>
+        function sendDoc() {
+            var xhttp = new XMLHttpRequest();
+
+            xhttp.onreadystatechange = function() {
+                if (this.readyState === 4 && this.status === 200) {
+                    // Parse the XML response
+                    var parser = new DOMParser();
+                    var xmlDoc = parser.parseFromString(this.responseText, "text/xml");
+
+                    // Retrieve firstName and lastName from XML
+                    var firstName = xmlDoc.getElementsByTagName("firstName")[0].textContent;
+                    var lastName = xmlDoc.getElementsByTagName("lastName")[0].textContent;
+
+                    // Combine and display the full name
+                    var fullName = firstName + " " + lastName;
+                    document.getElementById('demo').innerHTML = fullName;
+                }
+            };
+
+            // Replace 'your_file.xml' with the actual path to your XML file
+            xhttp.open("GET", "ping.xml", true);
+            xhttp.send();
+        }
+    </script>
+</body>
+</html>

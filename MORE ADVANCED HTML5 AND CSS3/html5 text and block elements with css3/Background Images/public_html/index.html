@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TODO supply a title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Define the common styles for the divs */
+        div {
+            width: 300px;
+            height: 200px;
+            margin: 10px;
+            border: 1px solid #000;
+            background-size: cover;
+        }
+
+        /* Add display:flex to make divs align horizontally */
+        body {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        /* Background image with "repeat" style */
+        .repeat-image {
+            background-image: url('path_to_your_repeat_image.jpg');
+            background-repeat: repeat;
+        }
+
+        /* Background image with "no-repeat" style */
+        .no-repeat-image {
+            background-image: url('path_to_your_no_repeat_image.jpg');
+            background-repeat: no-repeat;
+        }
+
+        /* Background image with "repeat-x" style */
+        .repeat-x-image {
+            background-image: url('path_to_your_repeat_x_image.jpg');
+            background-repeat: repeat-x;
+        }
+
+        /* Background image with "repeat-y" style */
+        .repeat-y-image {
+            background-image: url('path_to_your_repeat_y_image.jpg');
+            background-repeat: repeat-y;
+        }
+
+        /* Background image with "no-repeat center" style */
+        .no-repeat-center-image {
+            background-image: url('path_to_your_no_repeat_center_image.jpg');
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        /* Background image with "no-repeat top left" style */
+        .no-repeat-top-left-image {
+            background-image: url('path_to_your_no_repeat_top_left_image.jpg');
+            background-repeat: no-repeat;
+            background-position: top left;
+        }
+
+        /* Background image with "no-repeat bottom right" style */
+        .no-repeat-bottom-right-image {
+            background-image: url('path_to_your_no_repeat_bottom_right_image.jpg');
+            background-repeat: no-repeat;
+            background-position: bottom right;
+        }
+    </style>
+</head>
+<body>
+<!-- Divs with different background image styles -->
+<div class="repeat-image"></div>
+<div class="no-repeat-image"></div>
+<div class="repeat-x-image"></div>
+<div class="repeat-y-image"></div>
+<div class="no-repeat-center-image"></div>
+<div class="no-repeat-top-left-image"></div>
+<div class="no-repeat-bottom-right-image"></div>
+</body>
+</html>

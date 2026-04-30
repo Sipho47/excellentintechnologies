@@ -1,0 +1,26 @@
+body {
+    font-family: 'MyWebFont', Fallback, sans-serif;
+}
+
+section {
+    font-weight: lighter;
+    color: navy;
+}
+
+h2 {
+    color: red;
+}
+
+p {
+    color: green;
+}
+
+p {
+    color: purple !important;
+}
+
+p {
+    color: orange;
+}
+
+

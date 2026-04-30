@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <form id="requestForm">
+        <input type="text" name="text">
+        <input type="text" name="text">
+    </form>
+    
+    <button type="button" onclick="doSerialize()">Serialize</button>
+    
+    <div id="demo"></div>
+    
+    <script>
+        function doSerialize() {
+            // Get the form element
+            const formElement = document.getElementById("requestForm");
+            
+            // Get the form data as an array of objects
+            const formData = new FormData(formElement);
+            const formDataArray = [];
+            formData.forEach((value, key) => {
+                formDataArray.push({ [key]: value });
+            });
+            
+            // Serialize the form data to a JSON string
+            const serializedData = JSON.stringify(formDataArray);
+            
+            // Display the serialized data
+            document.getElementById("demo").innerText = serializedData;
+            
+            // Call the deserialization function to demonstrate it
+            doDeserialize(serializedData);
+        }
+        
+        function doDeserialize(serializedData) {
+            // Parse the JSON string back into an array of objects
+            const formDataArray = JSON.parse(serializedData);
+            
+            // Create a new FormData object and populate it with the deserialized data
+            const formData = new FormData();
+            formDataArray.forEach((item) => {
+                const key = Object.keys(item)[0];
+                formData.append(key, item[key]);
+            });
+            
+            // Display the deserialized data (optional, for demonstration purposes)
+            console.log(formData);
+        }
+    </script>
+</body>
+</html>
