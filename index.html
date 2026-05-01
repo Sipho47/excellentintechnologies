@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UK 49 Lotto Lunch & Teatime</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="page-shell">
+    <section class="card">
+      <h1>UK 49 Lotto</h1>
+      <p class="description">Generate pure random, unsorted numbers for Lunch and Teatime draws.</p>
+
+      <div class="controls">
+        <button id="lunchBtn" type="button">Generate Lunch</button>
+        <button id="teatimeBtn" type="button">Generate Teatime</button>
+        <button id="bothBtn" type="button">Generate Both</button>
+      </div>
+
+      <div class="draw-grid" aria-live="polite">
+        <article class="result-card" data-draw="lunch">
+          <div class="draw-heading">
+            <p class="draw-label">Lunch</p>
+            <p class="draw-status" id="lunchStatus">Ready</p>
+          </div>
+          <div class="numbers" id="lunchNumbers"></div>
+        </article>
+
+        <article class="result-card" data-draw="teatime">
+          <div class="draw-heading">
+            <p class="draw-label">Teatime</p>
+            <p class="draw-status" id="teatimeStatus">Ready</p>
+          </div>
+          <div class="numbers" id="teatimeNumbers"></div>
+        </article>
+      </div>
+
+      <p class="note">Each draw uses cryptographic randomness and keeps the generated order unchanged.</p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
