@@ -1,0 +1,973 @@
+
+//+------------------------------------------------------------------+
+//|                                                  CopilotTest.mql5 |
+//|                                       Upgraded by Copilot Agent   |
+//|                                Trend + ATR exit + risk management |
+//+------------------------------------------------------------------+
+#property strict
+#property copyright "Whatsapp 0814652595"
+#property link      "https://www.mql5.com"
+#property version   "1.50"
+#property description "Trend-strength EA with RSI pullback, break confirmation, ATR risk control, trade management, and live dashboard."
+
+#include <Trade/Trade.mqh>
+
+CTrade trade;
+
+input string   Expert_Title               = "CopilotTest";
+input ulong    Expert_MagicNumber         = 5011902;
+
+input group "Strategy"
+input ENUM_TIMEFRAMES SignalTimeframe      = PERIOD_H1;
+input int                FastEmaPeriod      = 21;
+input int                SlowEmaPeriod      = 55;
+input int                TrendEmaPeriod     = 100;
+input int                RsiPeriod          = 14;
+input int                AtrPeriod          = 14;
+input double             BuyRsiTrigger      = 52.0;
+input double             SellRsiTrigger     = 48.0;
+input double             MinSlopeAtr        = 0.06;
+input double             MinTrendDistanceAtr= 0.20;
+input double             BuyRsiMax          = 62.0;
+input double             SellRsiMin         = 38.0;
+input bool               RequireRsiMomentum = true;
+input bool               RequireBreakOfPreviousBar = true;
+input double             MaxEntryExtensionAtr = 1.10;
+input int                MinimumSignalScore = 4;
+
+input group "Risk & Money"
+input double             RiskPercent        = 1.0;
+input double             RewardToRisk       = 1.2;
+input double             AtrStopMultiplier  = 1.4;
+input int                MaxPositionsPerSymbol = 1;
+input int                MaxDailyNewTrades  = 2;
+input double             MaxDailyLossPercent= 3.0;
+input double             MaxTotalDrawdownPercent = 6.0;
+input int                MinSecondsBetweenTrades = 1800;
+input int                SlippagePoints     = 20;
+
+input group "Trade Management"
+input bool               UseBreakEven       = true;
+input double             BreakEvenAtR       = 0.8;
+input int                BreakEvenBufferPoints = 5;
+input bool               UseTrailingStop    = true;
+input double             TrailStartR        = 1.0;
+input double             TrailAtrMultiplier = 1.0;
+input bool               EnablePositionFlip = true;
+
+input group "Filters"
+input bool               UseTradingHours    = true;
+input int                StartHour          = 8;
+input int                EndHour            = 16;
+input bool               TradeMondayToFridayOnly = true;
+input bool               UseWeekdayFilter   = true;
+input bool               UseSpreadFilter    = true;
+input int                MaxSpreadPoints    = 25;
+input double             MaxSpreadAtrRatio  = 0.15;
+input int                MinAtrPoints       = 80;
+input bool               EnableSignalLogging= true;
+
+input group "Dashboard"
+input bool               ShowDashboard      = true;
+input int                DashboardX         = 10;
+input int                DashboardY         = 20;
+input color              DashboardTextColor = clrWhite;
+input color              DashboardPanelColor= clrBlack;
+
+double internalRewardToRisk;
+double internalBreakEvenAtR;
+double internalTrailStartR;
+
+int fastHandle, slowHandle, trendHandle, rsiHandle, atrHandle;
+datetime lastSignalBarTime = 0;
+int trackedDayOfYear = -1;
+double dayStartEquity = 0.0;
+double startEquity = 0.0;
+int dailyNewTrades = 0;
+int dailyWins = 0;
+int dailyTotalTrades = 0;
+string lastSignalStatus = "Waiting for data";
+int lastSignalScore = 0;
+datetime lastTradeTime = 0;
+datetime lastDashboardUpdate = 0;
+
+//+------------------------------------------------------------------+
+int OnInit()
+  {
+   if(FastEmaPeriod <= 0 || SlowEmaPeriod <= 0 || TrendEmaPeriod <= 0 || RsiPeriod <= 0 || AtrPeriod <= 0)
+     {
+      Print("Invalid indicator period input.");
+      return(INIT_PARAMETERS_INCORRECT);
+     }
+
+   if(BuyRsiTrigger >= BuyRsiMax || SellRsiTrigger <= SellRsiMin)
+     {
+      Print("Invalid RSI trigger range input.");
+      return(INIT_PARAMETERS_INCORRECT);
+     }
+
+   if(RiskPercent <= 0.0 || RewardToRisk <= 0.0 || AtrStopMultiplier <= 0.0 || MinSlopeAtr < 0.0 ||
+      MinTrendDistanceAtr < 0.0 || MaxSpreadAtrRatio < 0.0 || MaxEntryExtensionAtr <= 0.0 ||
+      MinimumSignalScore < 1 || MaxTotalDrawdownPercent < 0.0 || MinSecondsBetweenTrades < 0 ||
+      MinAtrPoints < 0)
+     {
+      Print("Invalid risk or filter input.");
+      return(INIT_PARAMETERS_INCORRECT);
+     }
+
+   if(RewardToRisk < 1.1)
+     {
+      Print("RewardToRisk too low. Forcing 1.1.");
+      internalRewardToRisk = 1.1;
+     }
+   else
+      internalRewardToRisk = RewardToRisk;
+
+   if(BreakEvenAtR < 0.4)
+      internalBreakEvenAtR = 0.8;
+   else
+      internalBreakEvenAtR = BreakEvenAtR;
+
+   if(TrailStartR < internalBreakEvenAtR)
+      internalTrailStartR = internalBreakEvenAtR + 0.2;
+   else
+      internalTrailStartR = TrailStartR;
+
+   Print("Internal settings - RR: ", DoubleToString(internalRewardToRisk, 2),
+         " BE: ", DoubleToString(internalBreakEvenAtR, 2),
+         " Trail: ", DoubleToString(internalTrailStartR, 2));
+
+   fastHandle  = iMA(_Symbol, SignalTimeframe, FastEmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   slowHandle  = iMA(_Symbol, SignalTimeframe, SlowEmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   trendHandle = iMA(_Symbol, SignalTimeframe, TrendEmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   rsiHandle   = iRSI(_Symbol, SignalTimeframe, RsiPeriod, PRICE_CLOSE);
+   atrHandle   = iATR(_Symbol, SignalTimeframe, AtrPeriod);
+
+   if(fastHandle == INVALID_HANDLE || slowHandle == INVALID_HANDLE || trendHandle == INVALID_HANDLE || rsiHandle == INVALID_HANDLE || atrHandle == INVALID_HANDLE)
+     {
+      Print("Failed to create indicator handles.");
+      return(INIT_FAILED);
+     }
+
+   trade.SetExpertMagicNumber(Expert_MagicNumber);
+   trade.SetDeviationInPoints(SlippagePoints);
+
+   ResetDailyEquityIfNeeded();
+   startEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+
+   return(INIT_SUCCEEDED);
+  }
+
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+  {
+   if(fastHandle  != INVALID_HANDLE) IndicatorRelease(fastHandle);
+   if(slowHandle  != INVALID_HANDLE) IndicatorRelease(slowHandle);
+   if(trendHandle != INVALID_HANDLE) IndicatorRelease(trendHandle);
+   if(rsiHandle   != INVALID_HANDLE) IndicatorRelease(rsiHandle);
+   if(atrHandle   != INVALID_HANDLE) IndicatorRelease(atrHandle);
+
+   DeleteDashboard();
+  }
+
+//+------------------------------------------------------------------+
+void OnTick()
+  {
+   ResetDailyEquityIfNeeded();
+   ManageOpenPositions();
+
+   if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED))
+     {
+      lastSignalStatus = "Trading disabled";
+      UpdateDashboard();
+      return;
+     }
+
+   if(!TradingAllowedNow())
+     {
+      lastSignalStatus = "Outside trading hours";
+      UpdateDashboard();
+      return;
+     }
+
+   if(IsPropFirmDrawdownLimitHit())
+     {
+      lastSignalStatus = "Total drawdown limit hit";
+      UpdateDashboard();
+      return;
+     }
+
+   ProcessSignalBar();
+   UpdateDashboard();
+  }
+
+//+------------------------------------------------------------------+
+void ProcessSignalBar()
+  {
+   if(!IsNewSignalBar())
+      return;
+
+   if(IsDailyLossLimitHit())
+     {
+      lastSignalStatus = "Daily loss limit hit";
+      Print("Daily loss limit reached. No new trades today.");
+      return;
+     }
+
+   if(IsTradeCooldownActive() && !HasOppositePosition(_Symbol, ORDER_TYPE_BUY) && !HasOppositePosition(_Symbol, ORDER_TYPE_SELL))
+     {
+      lastSignalStatus = "Trade cooldown active";
+      return;
+     }
+
+   double fast[], slow[], trend[], rsi[], atr[], close[], high[], low[];
+   if(!ReadIndicatorData(fast, slow, trend, rsi, atr, close, high, low))
+     {
+      lastSignalStatus = "Waiting for indicator data";
+      return;
+     }
+
+   const double currentFast = fast[1];
+   const double previousFast = fast[2];
+   const double currentSlow = slow[1];
+   const double currentTrend = trend[1];
+   const double currentRsi  = rsi[1];
+   const double previousRsi = rsi[2];
+   const double currentAtr  = atr[1];
+   const double currentClose= close[1];
+   const double previousHigh = high[2];
+   const double previousLow = low[2];
+
+   if(currentAtr <= 0.0)
+     {
+      lastSignalStatus = "ATR not ready";
+      return;
+     }
+
+   const double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   const double atrPoints = (point > 0.0) ? currentAtr / point : 0.0;
+   if(MinAtrPoints > 0 && atrPoints < MinAtrPoints)
+     {
+      lastSignalStatus = "ATR too low";
+      LogSignalDecision("BLOCK_ATR", ORDER_TYPE_BUY, 0, currentRsi, currentAtr, CurrentSpreadPoints(), 0.0, 0.0);
+      return;
+     }
+
+   if(UseSpreadFilter && !SpreadIsAcceptable(currentAtr))
+     {
+      lastSignalStatus = "Spread too high";
+      LogSignalDecision("BLOCK_SPREAD", ORDER_TYPE_BUY, 0, currentRsi, currentAtr, CurrentSpreadPoints(), 0.0, 0.0);
+      return;
+     }
+
+   const double slopeAtr = (currentFast - previousFast) / currentAtr;
+   const double trendDistanceAtr = MathAbs(currentClose - currentTrend) / currentAtr;
+   const double entryExtensionAtr = MathAbs(currentClose - currentFast) / currentAtr;
+
+   const bool entryNotExtended = entryExtensionAtr <= MaxEntryExtensionAtr;
+   const bool buyTrend = currentFast > currentSlow && slopeAtr >= MinSlopeAtr && currentClose > currentTrend &&
+                         trendDistanceAtr >= MinTrendDistanceAtr && entryNotExtended;
+   const bool sellTrend = currentFast < currentSlow && slopeAtr <= -MinSlopeAtr && currentClose < currentTrend &&
+                          trendDistanceAtr >= MinTrendDistanceAtr && entryNotExtended;
+   const bool buyRsi = previousRsi < BuyRsiTrigger && currentRsi >= BuyRsiTrigger && currentRsi <= BuyRsiMax &&
+                       (!RequireRsiMomentum || currentRsi > previousRsi);
+   const bool sellRsi = previousRsi > SellRsiTrigger && currentRsi <= SellRsiTrigger && currentRsi >= SellRsiMin &&
+                        (!RequireRsiMomentum || currentRsi < previousRsi);
+   const bool buyBreak = !RequireBreakOfPreviousBar || currentClose > previousHigh;
+   const bool sellBreak = !RequireBreakOfPreviousBar || currentClose < previousLow;
+   const bool lowSpreadScore = !UseSpreadFilter || CurrentSpreadPoints() <= MaxSpreadPoints;
+
+   int buyScore = 0;
+   if(currentFast > currentSlow)
+      buyScore++;
+   if(slopeAtr >= MinSlopeAtr)
+      buyScore++;
+   if(currentClose > currentTrend && trendDistanceAtr >= MinTrendDistanceAtr)
+      buyScore++;
+   if(entryNotExtended)
+      buyScore++;
+   if(buyRsi)
+      buyScore++;
+   if(buyBreak)
+      buyScore++;
+   if(lowSpreadScore)
+      buyScore++;
+
+   int sellScore = 0;
+   if(currentFast < currentSlow)
+      sellScore++;
+   if(slopeAtr <= -MinSlopeAtr)
+      sellScore++;
+   if(currentClose < currentTrend && trendDistanceAtr >= MinTrendDistanceAtr)
+      sellScore++;
+   if(entryNotExtended)
+      sellScore++;
+   if(sellRsi)
+      sellScore++;
+   if(sellBreak)
+      sellScore++;
+   if(lowSpreadScore)
+      sellScore++;
+
+   lastSignalScore = MathMax(buyScore, sellScore);
+
+   if(buyTrend && buyRsi && buyBreak && buyScore >= MinimumSignalScore)
+     {
+      lastSignalStatus = "Buy signal score " + IntegerToString(buyScore);
+      LogSignalDecision("BUY", ORDER_TYPE_BUY, buyScore, currentRsi, currentAtr, CurrentSpreadPoints(), slopeAtr, entryExtensionAtr);
+      ExecuteSignal(ORDER_TYPE_BUY, currentAtr);
+     }
+   else if(sellTrend && sellRsi && sellBreak && sellScore >= MinimumSignalScore)
+     {
+      lastSignalStatus = "Sell signal score " + IntegerToString(sellScore);
+      LogSignalDecision("SELL", ORDER_TYPE_SELL, sellScore, currentRsi, currentAtr, CurrentSpreadPoints(), slopeAtr, entryExtensionAtr);
+      ExecuteSignal(ORDER_TYPE_SELL, currentAtr);
+     }
+   else
+     {
+      lastSignalStatus = "No setup score " + IntegerToString(lastSignalScore);
+      LogSignalDecision("NO_TRADE", ORDER_TYPE_BUY, lastSignalScore, currentRsi, currentAtr, CurrentSpreadPoints(), slopeAtr, entryExtensionAtr);
+     }
+  }
+
+//+------------------------------------------------------------------+
+void OpenNewPosition(const ENUM_ORDER_TYPE type, const double atrValue)
+  {
+   if(atrValue <= 0.0)
+      return;
+
+   const double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   const double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   const double entry = (type == ORDER_TYPE_BUY) ? ask : bid;
+   const double stopDistance = NormalizePriceDistance(atrValue * AtrStopMultiplier);
+
+   if(stopDistance <= 0.0)
+      return;
+
+   double stopLoss = 0.0;
+   double takeProfit = 0.0;
+   if(type == ORDER_TYPE_BUY)
+     {
+      stopLoss = entry - stopDistance;
+      takeProfit = entry + stopDistance * internalRewardToRisk;
+     }
+   else
+     {
+      stopLoss = entry + stopDistance;
+      takeProfit = entry - stopDistance * internalRewardToRisk;
+     }
+
+   stopLoss = NormalizeDouble(stopLoss, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+   takeProfit = NormalizeDouble(takeProfit, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+
+   const double volume = CalculateRiskVolume(stopDistance);
+   if(volume <= 0.0)
+     {
+      Print("Trade skipped: calculated volume invalid or below minimum.");
+      return;
+     }
+
+   bool result = false;
+   if(type == ORDER_TYPE_BUY)
+      result = trade.Buy(volume, _Symbol, 0.0, stopLoss, takeProfit, "CopilotTest buy");
+   else
+      result = trade.Sell(volume, _Symbol, 0.0, stopLoss, takeProfit, "CopilotTest sell");
+
+   if(result)
+     {
+      dailyNewTrades++;
+      lastTradeTime = TimeCurrent();
+      Print("Opened ", EnumToString(type), " @", entry, " SL=", stopLoss, " TP=", takeProfit, " vol=", volume);
+     }
+   else
+     {
+      Print("Order failed: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
+     }
+  }
+
+//+------------------------------------------------------------------+
+void ExecuteSignal(const ENUM_ORDER_TYPE type, const double atrValue)
+  {
+   bool oppositeExists = HasOppositePosition(_Symbol, type);
+
+   if(IsTradeCooldownActive() && !oppositeExists)
+     {
+      lastSignalStatus = "Signal blocked by cooldown";
+      return;
+     }
+
+   if(dailyNewTrades >= MaxDailyNewTrades)
+     {
+      lastSignalStatus = "Signal blocked by daily trade limit";
+      return;
+     }
+
+   if(EnablePositionFlip && oppositeExists)
+     {
+      if(!CloseOppositePositions(_Symbol, type))
+        {
+         lastSignalStatus = "Flip failed: opposite close error";
+         return;
+        }
+
+      Print("Flipped position in favour of ", EnumToString(type), " on ", _Symbol);
+     }
+
+   if(CountOpenPositionsByType(_Symbol, type) > 0)
+     {
+      lastSignalStatus = "Signal ignored: same direction already open";
+      return;
+     }
+
+   if(CountOpenPositions(_Symbol) >= MaxPositionsPerSymbol)
+     {
+      lastSignalStatus = "Signal blocked by position limit";
+      return;
+     }
+
+   OpenNewPosition(type, atrValue);
+  }
+
+//+------------------------------------------------------------------+
+void ManageOpenPositions()
+  {
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol)
+         continue;
+      if((ulong)PositionGetInteger(POSITION_MAGIC) != Expert_MagicNumber)
+         continue;
+
+      double atr[];
+      ArraySetAsSeries(atr, true);
+      if(CopyBuffer(atrHandle, 0, 0, 3, atr) < 3)
+         continue;
+
+      ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      double entry = PositionGetDouble(POSITION_PRICE_OPEN);
+      double currentPrice = (posType == POSITION_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      double stopLoss = PositionGetDouble(POSITION_SL);
+      double takeProfit = PositionGetDouble(POSITION_TP);
+      double initialRisk = EstimateInitialRiskDistance(posType, entry, stopLoss, takeProfit);
+      if(initialRisk <= 0.0)
+         continue;
+
+      double profitDistance = (posType == POSITION_TYPE_BUY) ? currentPrice - entry : entry - currentPrice;
+      double newStop = stopLoss;
+
+      if(UseBreakEven && profitDistance >= initialRisk * internalBreakEvenAtR)
+        {
+         double breakEven = (posType == POSITION_TYPE_BUY) ? entry + BreakEvenBufferPoints * SymbolInfoDouble(_Symbol, SYMBOL_POINT)
+                                                            : entry - BreakEvenBufferPoints * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+         if(IsBetterStop(posType, breakEven, newStop))
+            newStop = breakEven;
+        }
+
+      if(UseTrailingStop && profitDistance >= initialRisk * internalTrailStartR && atr[1] > 0.0)
+        {
+         double trailDistance = NormalizePriceDistance(atr[1] * TrailAtrMultiplier);
+         double trailStop = (posType == POSITION_TYPE_BUY) ? currentPrice - trailDistance : currentPrice + trailDistance;
+         if(IsBetterStop(posType, trailStop, newStop))
+            newStop = trailStop;
+        }
+
+      newStop = NormalizeDouble(newStop, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+      if(MathAbs(newStop - stopLoss) >= SymbolInfoDouble(_Symbol, SYMBOL_POINT))
+        {
+         if(!trade.PositionModify(ticket, newStop, takeProfit))
+            Print("Modify failed: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
+        }
+     }
+  }
+
+//+------------------------------------------------------------------+
+bool ReadIndicatorData(double &fast[], double &slow[], double &trend[], double &rsi[], double &atr[],
+                       double &close[], double &high[], double &low[])
+  {
+   ArraySetAsSeries(fast, true);
+   ArraySetAsSeries(slow, true);
+   ArraySetAsSeries(trend, true);
+   ArraySetAsSeries(rsi, true);
+   ArraySetAsSeries(atr, true);
+   ArraySetAsSeries(close, true);
+   ArraySetAsSeries(high, true);
+   ArraySetAsSeries(low, true);
+
+   if(CopyBuffer(fastHandle, 0, 0, 4, fast) < 4)
+      return false;
+   if(CopyBuffer(slowHandle, 0, 0, 4, slow) < 4)
+      return false;
+   if(CopyBuffer(trendHandle, 0, 0, 4, trend) < 4)
+      return false;
+   if(CopyBuffer(rsiHandle, 0, 0, 4, rsi) < 4)
+      return false;
+   if(CopyBuffer(atrHandle, 0, 0, 4, atr) < 4)
+      return false;
+   if(CopyClose(_Symbol, SignalTimeframe, 0, 4, close) < 4)
+      return false;
+   if(CopyHigh(_Symbol, SignalTimeframe, 0, 4, high) < 4)
+      return false;
+   if(CopyLow(_Symbol, SignalTimeframe, 0, 4, low) < 4)
+      return false;
+
+   return true;
+  }
+
+//+------------------------------------------------------------------+
+bool IsNewSignalBar()
+  {
+   datetime time[1];
+   if(CopyTime(_Symbol, SignalTimeframe, 0, 1, time) != 1)
+      return false;
+
+   if(time[0] == lastSignalBarTime)
+      return false;
+
+   lastSignalBarTime = time[0];
+   return true;
+  }
+
+//+------------------------------------------------------------------+
+bool TradingAllowedNow()
+  {
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+
+   if((TradeMondayToFridayOnly || UseWeekdayFilter) && (dt.day_of_week == 0 || dt.day_of_week == 6))
+      return false;
+
+   if(!UseTradingHours)
+      return true;
+
+   if(StartHour == EndHour)
+      return true;
+
+   if(StartHour < EndHour)
+      return dt.hour >= StartHour && dt.hour < EndHour;
+
+   return dt.hour >= StartHour || dt.hour < EndHour;
+  }
+
+//+------------------------------------------------------------------+
+void ResetDailyEquityIfNeeded()
+  {
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+
+   if(dt.day_of_year != trackedDayOfYear || dayStartEquity <= 0.0)
+     {
+      trackedDayOfYear = dt.day_of_year;
+      dailyNewTrades = 0;
+      dailyWins = 0;
+      dailyTotalTrades = 0;
+      dayStartEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+     }
+  }
+
+//+------------------------------------------------------------------+
+bool IsDailyLossLimitHit()
+  {
+   if(MaxDailyLossPercent <= 0.0 || dayStartEquity <= 0.0)
+      return false;
+
+   double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double lossPercent = ((dayStartEquity - currentEquity) / dayStartEquity) * 100.0;
+   return lossPercent >= MaxDailyLossPercent;
+  }
+
+//+------------------------------------------------------------------+
+bool IsPropFirmDrawdownLimitHit()
+  {
+   if(MaxTotalDrawdownPercent <= 0.0 || startEquity <= 0.0)
+      return false;
+
+   double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double drawdownPercent = ((startEquity - currentEquity) / startEquity) * 100.0;
+   return drawdownPercent >= MaxTotalDrawdownPercent;
+  }
+
+//+------------------------------------------------------------------+
+double GetTotalDrawdownPercent()
+  {
+   if(startEquity <= 0.0)
+      return 0.0;
+
+   double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+   return MathMax(0.0, (startEquity - currentEquity) / startEquity * 100.0);
+  }
+
+//+------------------------------------------------------------------+
+bool IsTradeCooldownActive()
+  {
+   if(MinSecondsBetweenTrades <= 0 || lastTradeTime <= 0)
+      return false;
+
+   return (TimeCurrent() - lastTradeTime) < MinSecondsBetweenTrades;
+  }
+
+//+------------------------------------------------------------------+
+void LogSignalDecision(const string decision, const ENUM_ORDER_TYPE type, const int score, const double rsi,
+                       const double atr, const int spread, const double slopeAtr, const double extensionAtr)
+  {
+   if(!EnableSignalLogging)
+      return;
+
+   Print("SignalDecision=", decision,
+         " Type=", EnumToString(type),
+         " Score=", score, "/", MinimumSignalScore,
+         " RSI=", DoubleToString(rsi, 2),
+         " ATR=", DoubleToString(atr, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)),
+         " Spread=", spread,
+         " SlopeATR=", DoubleToString(slopeAtr, 3),
+         " ExtensionATR=", DoubleToString(extensionAtr, 3));
+  }
+
+//+------------------------------------------------------------------+
+int CurrentSpreadPoints()
+  {
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   return (int)MathRound((ask - bid) / SymbolInfoDouble(_Symbol, SYMBOL_POINT));
+  }
+
+//+------------------------------------------------------------------+
+bool SpreadIsAcceptable(const double atrValue)
+  {
+   if(!UseSpreadFilter)
+      return true;
+
+   int spreadPoints = CurrentSpreadPoints();
+   if(MaxSpreadPoints > 0 && spreadPoints > MaxSpreadPoints)
+      return false;
+
+   if(MaxSpreadAtrRatio <= 0.0 || atrValue <= 0.0)
+      return true;
+
+   double spreadPrice = spreadPoints * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   return spreadPrice <= atrValue * MaxSpreadAtrRatio;
+  }
+
+//+------------------------------------------------------------------+
+int CountOpenPositions(const string symbol)
+  {
+   int count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != symbol)
+         continue;
+      if((ulong)PositionGetInteger(POSITION_MAGIC) != Expert_MagicNumber)
+         continue;
+      count++;
+     }
+   return count;
+  }
+
+//+------------------------------------------------------------------+
+int CountOpenPositionsByType(const string symbol, const ENUM_ORDER_TYPE type)
+  {
+   int count = 0;
+   ENUM_POSITION_TYPE positionType = (type == ORDER_TYPE_BUY) ? POSITION_TYPE_BUY : POSITION_TYPE_SELL;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != symbol)
+         continue;
+      if((ulong)PositionGetInteger(POSITION_MAGIC) != Expert_MagicNumber)
+         continue;
+      if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) != positionType)
+         continue;
+
+      count++;
+     }
+
+   return count;
+  }
+
+//+------------------------------------------------------------------+
+bool HasOppositePosition(const string symbol, const ENUM_ORDER_TYPE signalType)
+  {
+   ENUM_POSITION_TYPE oppositeType = (signalType == ORDER_TYPE_BUY) ? POSITION_TYPE_SELL : POSITION_TYPE_BUY;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != symbol)
+         continue;
+      if((ulong)PositionGetInteger(POSITION_MAGIC) != Expert_MagicNumber)
+         continue;
+      if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) == oppositeType)
+         return true;
+     }
+
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+bool CloseOppositePositions(const string symbol, const ENUM_ORDER_TYPE signalType)
+  {
+   ENUM_POSITION_TYPE oppositeType = (signalType == ORDER_TYPE_BUY) ? POSITION_TYPE_SELL : POSITION_TYPE_BUY;
+   bool allClosed = true;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != symbol)
+         continue;
+      if((ulong)PositionGetInteger(POSITION_MAGIC) != Expert_MagicNumber)
+         continue;
+      if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) != oppositeType)
+         continue;
+
+      if(!trade.PositionClose(ticket))
+        {
+         allClosed = false;
+         Print("Failed to close opposite position for flip. Ticket=", ticket,
+               " Retcode=", trade.ResultRetcode(), " ", trade.ResultRetcodeDescription());
+        }
+     }
+
+   return allClosed;
+  }
+
+//+------------------------------------------------------------------+
+double CalculateRiskVolume(const double stopDistance)
+  {
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double riskMoney = equity * (RiskPercent / 100.0);
+   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   double volumeStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   double minVolume = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double maxVolume = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+
+   if(riskMoney <= 0.0 || stopDistance <= 0.0 || tickSize <= 0.0 || tickValue <= 0.0 || volumeStep <= 0.0)
+      return 0.0;
+
+   double lossPerLot = (stopDistance / tickSize) * tickValue;
+   if(lossPerLot <= 0.0)
+      return 0.0;
+
+   double rawVolume = riskMoney / lossPerLot;
+   if(rawVolume < minVolume)
+      return 0.0;
+
+   double volume = MathFloor(rawVolume / volumeStep) * volumeStep;
+   volume = MathMax(volume, minVolume);
+   volume = MathMin(volume, maxVolume);
+   return NormalizeVolume(volume);
+  }
+
+//+------------------------------------------------------------------+
+double NormalizeVolume(const double volume)
+  {
+   double volumeStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   if(volumeStep <= 0.0)
+      return volume;
+
+   int digits = 0;
+   double step = volumeStep;
+   while(digits < 8 && MathAbs(step - MathRound(step)) > 0.00000001)
+     {
+      step *= 10.0;
+      digits++;
+     }
+
+   return NormalizeDouble(volume, MathMax(0, digits));
+  }
+
+//+------------------------------------------------------------------+
+double NormalizePriceDistance(const double distance)
+  {
+   int stopLevel = (int)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double minDistance = stopLevel * point;
+   return MathMax(distance, minDistance);
+  }
+
+//+------------------------------------------------------------------+
+double EstimateInitialRiskDistance(const ENUM_POSITION_TYPE type, const double entry, const double stopLoss, const double takeProfit)
+  {
+   if(takeProfit > 0.0 && internalRewardToRisk > 0.0)
+     {
+      double rewardDistance = (type == POSITION_TYPE_BUY) ? takeProfit - entry : entry - takeProfit;
+      if(rewardDistance > 0.0)
+         return rewardDistance / internalRewardToRisk;
+     }
+
+   return MathAbs(entry - stopLoss);
+  }
+
+//+------------------------------------------------------------------+
+bool IsBetterStop(const ENUM_POSITION_TYPE type, const double candidate, const double current)
+  {
+   if(type == POSITION_TYPE_BUY)
+      return candidate > current;
+   return candidate < current;
+  }
+
+//+------------------------------------------------------------------+
+double GetDailyPL()
+  {
+   double pl = 0.0;
+   datetime today = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
+
+   dailyWins = 0;
+   dailyTotalTrades = 0;
+
+   if(!HistorySelect(today, TimeCurrent()))
+      return 0.0;
+
+   for(int i = HistoryDealsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket == 0)
+         continue;
+
+      if(HistoryDealGetString(ticket, DEAL_SYMBOL) != _Symbol)
+         continue;
+      if((ulong)HistoryDealGetInteger(ticket, DEAL_MAGIC) != Expert_MagicNumber)
+         continue;
+      if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(ticket, DEAL_ENTRY) != DEAL_ENTRY_OUT)
+         continue;
+
+      datetime dealTime = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+      if(dealTime < today)
+         continue;
+
+      double profit = HistoryDealGetDouble(ticket, DEAL_PROFIT) +
+                      HistoryDealGetDouble(ticket, DEAL_SWAP) +
+                      HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+      pl += profit;
+
+      if(profit > 0.0)
+         dailyWins++;
+      dailyTotalTrades++;
+     }
+   return pl;
+  }
+
+//+------------------------------------------------------------------+
+void SetDashboardLabel(const string name, const int row, const string text, const color textColor)
+  {
+   string objectName = Expert_Title + "_" + name;
+   int x = DashboardX + 12;
+   int y = DashboardY + 12 + (row * 18);
+
+   if(ObjectFind(0, objectName) < 0)
+     {
+      ObjectCreate(0, objectName, OBJ_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, objectName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, objectName, OBJPROP_FONTSIZE, 9);
+      ObjectSetString(0, objectName, OBJPROP_FONT, "Consolas");
+      ObjectSetInteger(0, objectName, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, objectName, OBJPROP_HIDDEN, true);
+     }
+
+   ObjectSetInteger(0, objectName, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, objectName, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, objectName, OBJPROP_COLOR, textColor);
+   ObjectSetString(0, objectName, OBJPROP_TEXT, text);
+  }
+
+//+------------------------------------------------------------------+
+void DeleteDashboard()
+  {
+   string names[] = {"panel", "title", "equity", "daily", "drawdown", "totaldd", "risk", "position", "spread", "session", "score", "signal"};
+
+   for(int i = 0; i < ArraySize(names); i++)
+      ObjectDelete(0, Expert_Title + "_" + names[i]);
+  }
+
+//+------------------------------------------------------------------+
+void UpdateDashboard()
+  {
+   if(!ShowDashboard)
+     {
+      DeleteDashboard();
+      return;
+     }
+
+   datetime now = TimeCurrent();
+   if(lastDashboardUpdate == now)
+      return;
+   lastDashboardUpdate = now;
+
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double dailyPL = GetDailyPL();
+   int openPos = CountOpenPositions(_Symbol);
+   double winRate = (dailyTotalTrades > 0) ? (double)dailyWins / dailyTotalTrades * 100.0 : 0.0;
+   double drawdownPercent = (dayStartEquity > 0.0) ? MathMax(0.0, (dayStartEquity - equity) / dayStartEquity * 100.0) : 0.0;
+   double totalDrawdownPercent = GetTotalDrawdownPercent();
+   double openProfit = 0.0;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol)
+         continue;
+      if((ulong)PositionGetInteger(POSITION_MAGIC) != Expert_MagicNumber)
+         continue;
+
+      openProfit += PositionGetDouble(POSITION_PROFIT) +
+                    PositionGetDouble(POSITION_SWAP);
+     }
+
+   string panelName = Expert_Title + "_panel";
+   if(ObjectFind(0, panelName) < 0)
+     {
+      ObjectCreate(0, panelName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, panelName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, panelName, OBJPROP_XSIZE, 320);
+      ObjectSetInteger(0, panelName, OBJPROP_YSIZE, 232);
+      ObjectSetInteger(0, panelName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, panelName, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, panelName, OBJPROP_HIDDEN, true);
+     }
+
+   ObjectSetInteger(0, panelName, OBJPROP_XDISTANCE, DashboardX);
+   ObjectSetInteger(0, panelName, OBJPROP_YDISTANCE, DashboardY);
+   ObjectSetInteger(0, panelName, OBJPROP_BGCOLOR, DashboardPanelColor);
+   ObjectSetInteger(0, panelName, OBJPROP_COLOR, clrDimGray);
+
+   string currency = AccountInfoString(ACCOUNT_CURRENCY);
+   color plColor = (dailyPL > 0.0) ? clrLime : (dailyPL < 0.0) ? clrTomato : DashboardTextColor;
+   color openColor = (openProfit > 0.0) ? clrLime : (openProfit < 0.0) ? clrTomato : DashboardTextColor;
+   color ddColor = (drawdownPercent >= MaxDailyLossPercent * 0.8) ? clrTomato : DashboardTextColor;
+   color totalDdColor = (totalDrawdownPercent >= MaxTotalDrawdownPercent * 0.8) ? clrTomato : DashboardTextColor;
+   string tradeState = (TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) && MQLInfoInteger(MQL_TRADE_ALLOWED)) ? "ON" : "OFF";
+   string sessionState = TradingAllowedNow() ? "OPEN" : "CLOSED";
+   int cooldownLeft = 0;
+   if(MinSecondsBetweenTrades > 0 && lastTradeTime > 0)
+      cooldownLeft = MathMax(0, MinSecondsBetweenTrades - (int)(TimeCurrent() - lastTradeTime));
+
+   SetDashboardLabel("title", 0, Expert_Title + " | " + _Symbol + " " + EnumToString(SignalTimeframe), clrDeepSkyBlue);
+   SetDashboardLabel("equity", 1, "Balance: " + DoubleToString(balance, 2) + "  Equity: " + DoubleToString(equity, 2) + " " + currency, DashboardTextColor);
+   SetDashboardLabel("daily", 2, "Daily P/L: " + DoubleToString(dailyPL, 2) + "  Win: " + DoubleToString(winRate, 1) + "% (" + IntegerToString(dailyWins) + "/" + IntegerToString(dailyTotalTrades) + ")", plColor);
+   SetDashboardLabel("drawdown", 3, "Daily DD: " + DoubleToString(drawdownPercent, 2) + "% / " + DoubleToString(MaxDailyLossPercent, 2) + "%", ddColor);
+   SetDashboardLabel("totaldd", 4, "Total DD: " + DoubleToString(totalDrawdownPercent, 2) + "% / " + DoubleToString(MaxTotalDrawdownPercent, 2) + "%", totalDdColor);
+   SetDashboardLabel("risk", 5, "Risk: " + DoubleToString(RiskPercent, 2) + "%  RR: " + DoubleToString(internalRewardToRisk, 2) + "  ATR SL: " + DoubleToString(AtrStopMultiplier, 2), DashboardTextColor);
+   SetDashboardLabel("position", 6, "Open: " + IntegerToString(openPos) + "  Open P/L: " + DoubleToString(openProfit, 2) + "  Trades: " + IntegerToString(dailyNewTrades) + "/" + IntegerToString(MaxDailyNewTrades), openColor);
+   SetDashboardLabel("spread", 7, "Spread: " + IntegerToString(CurrentSpreadPoints()) + " pts / " + IntegerToString(MaxSpreadPoints) + "  Min ATR: " + IntegerToString(MinAtrPoints), DashboardTextColor);
+   SetDashboardLabel("session", 8, "Session: " + sessionState + "  Trade: " + tradeState + "  Cooldown: " + IntegerToString(cooldownLeft) + "s", DashboardTextColor);
+   SetDashboardLabel("score", 9, "Score: " + IntegerToString(lastSignalScore) + " / " + IntegerToString(MinimumSignalScore), DashboardTextColor);
+   SetDashboardLabel("signal", 10, "Status: " + lastSignalStatus, clrKhaki);
+
+   ChartRedraw();
+  }
