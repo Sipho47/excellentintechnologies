@@ -1,13 +1,2 @@
-# MT5
-*.ex5
-*.log
-*.set
 
-# NetBeans / project junk
-nbproject/
-*.xml
-*.properties
-
-# OS junk
 .DS_Store
-Thumbs.db
