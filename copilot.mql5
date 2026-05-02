@@ -8,7 +8,7 @@
 //+------------------------------------------------------------------+
 #property strict
 #property copyright "OpenAI Codex"
-#property version "1.00"
+#property version "2.00"
 #property description "EMA trend + RSI pullback EA with ATR stops, spread filter, daily drawdown guard, trailing stop, and risk-based sizing. Auto-reverse, multi-symbol, slope filter. Attach EMA, RSI, ATR indicators to chart for visualization in backtest."
 
 #include <Trade/Trade.mqh>
@@ -24,66 +24,131 @@ int trendEmaHandle;
 int higherTrendEmaHandle;
 int rsiHandle;
 int atrHandle;
+int adxHandle;
 datetime lastBarTime;
+string lastStatus;
+double lastAdx;
+double lastRsi;
+double lastAtrPoints;
+double lastPlusDi;
+double lastMinusDi;
+string lastMode;
+string lastScannerStatus;
 };
 
 SymbolData symbolData[];
+datetime lastTradeTime[];
 
 input group "Signal"
 input ENUM_TIMEFRAMES SignalTimeframe = PERIOD_H1;
 input int FastEmaPeriod = 21;
 input int SlowEmaPeriod = 55;
-input int TrendEmaPeriod = 200;
+input int TrendEmaPeriod = 100;
 input int RsiPeriod = 14;
 input double BuyRsiTrigger = 52.0;
-input double BuyRsiMax = 68.0;
+input double BuyRsiMax = 62.0;
 input double SellRsiTrigger = 48.0;
-input double SellRsiMin = 32.0;
+input double SellRsiMin = 38.0;
+input bool UseStrongRsiFilter = true;
+input double StrongBuyRsiMin = 50.0;
+input double StrongBuyRsiMax = 62.0;
+input double StrongSellRsiMin = 38.0;
+input double StrongSellRsiMax = 50.0;
 input int AtrPeriod = 14;
-input double MinSlopeAtr = 0.03;
-input double MinTrendDistanceAtr = 0.25;
-input bool AllowFreshEmaCrossEntries = true;
+input int AdxPeriod = 14;
+input bool UseAdxFilter = true;
+input double MinAdx = 25.0;
+input bool RequireAdxRising = false;
+input bool RequireDirectionalDi = true;
+input double MinDiSeparation = 2.0;
+input double MinSlopeAtr = 0.06;
+input double MinTrendDistanceAtr = 0.20;
+input int StructureLookbackBars = 5;
+input bool RequirePullbackToEma = true;
+input double PullbackToleranceAtr = 0.35;
+input bool AllowFreshEmaCrossEntries = false;
+input bool RequireRsiMomentum = true;
+input bool RequireBreakOfPreviousBar = true;
+input double MaxEntryExtensionAtr = 1.10;
 input bool RequireHigherTimeframeTrend = true;
 input ENUM_TIMEFRAMES HigherTrendTimeframe = PERIOD_H4;
 input int HigherTrendEmaPeriod = 200;
 
+input group "Range Mode"
+input bool EnableRangeMode = false;
+input double MaxRangeAdx = 19.5;
+input double MinRangeAdx = 10.0;
+input double RangeBuyRsi = 35.0;
+input double RangeSellRsi = 65.0;
+input double RangeBoundaryAtr = 0.25;
+input double RangeRewardToRisk = 1.0;
+
 input group "Risk"
-input double RiskPercent = 2.0;
-input double RewardToRisk = 2.0;
+input double RiskPercent = 1.0;
+input double RewardToRisk = 2.5;
 input double AtrStopMultiplier = 2.0;
-input int MaxSpreadPoints = 25;
+input bool UseStructureStops = true;
+input double StructureStopBufferAtr = 0.25;
+input double MaxStructureStopAtr = 3.0;
+input int MaxSpreadPoints = 35;
 input double MaxSpreadAtrRatio = 0.12;
+input bool UseVolatilityFilter = true;
+input int MinAtrPoints = 60;
+input int MaxAtrPoints = 650;
 input double MaxDailyLossPercent = 3.0;
+input int MaxDailyNewTrades = 2;
 input int MaxPositionsPerSymbol = 1;
+input int MaxTotalOpenPositions = 2;
 input ulong MagicNumber = 240427;
 input int SlippagePoints = 20;
 
 input group "Trade Management"
+input int TradeCooldownMinutes = 60;
 input bool UseBreakEven = true;
-input double BreakEvenAtR = 1.0;
+input double BreakEvenAtR = 0.8;
 input int BreakEvenBufferPoints = 5;
 input bool UseTrailingStop = true;
-input double TrailStartR = 1.2;
-input double TrailAtrMultiplier = 1.5;
+input double TrailStartR = 1.0;
+input double TrailAtrMultiplier = 1.0;
 
 input group "Trading Hours"
-input bool UseTradingHours = false;
-input int StartHour = 7;
-input int EndHour = 20;
+input bool UseTradingHours = true;
+input int StartHour = 8;
+input int EndHour = 18;
+input bool TradeMondayToFridayOnly = true;
+input bool UseWeekdayFilter = true;
 
 input group "Multi-Symbol"
-input string Symbols = "EURUSD,GBPUSD,XAUUSD,USDJPY,USDCAD,AUDUSD,NZDUSD,USDCHF";
+input string Symbols = "EURJPY,GBPUSD,EURUSD";
 input bool EnableAutoReverse = true;
 
+input group "Dashboard"
+input bool ShowDashboard = true;
+input bool ShowSymbolScanner = true;
+input bool ShowAdxOnChart = false;
+input bool CleanDuplicateAdxOnInit = true;
+input int DashboardX = 10;
+input int DashboardY = 20;
+input color DashboardTextColor = clrWhite;
+input color DashboardPanelColor = clrBlack;
+
 int trackedDayOfYear = -1;
+int dailyNewTrades = 0;
 double dayStartEquity = 0.0;
+
+double ActualRewardToRisk = 1.2;
+double ActualBreakEvenAtR = 0.8;
+double ActualTrailStartR = 1.0;
+datetime lastDashboardUpdate = 0;
+int chartAdxHandle = INVALID_HANDLE;
 
 //+------------------------------------------------------------------+
 //| Expert initialization |
 //+------------------------------------------------------------------+
 int OnInit()
 {
-if(FastEmaPeriod <= 0 || SlowEmaPeriod <= 0 || TrendEmaPeriod <= 0 || HigherTrendEmaPeriod <= 0 || RsiPeriod <= 0 || AtrPeriod <= 0)
+if(FastEmaPeriod <= 0 || SlowEmaPeriod <= 0 || TrendEmaPeriod <= 0 || HigherTrendEmaPeriod <= 0 ||
+RsiPeriod <= 0 || AtrPeriod <= 0 || AdxPeriod <= 0 || StructureLookbackBars < 2)
 {
 Print("Invalid indicator period input.");
 return INIT_PARAMETERS_INCORRECT;
@@ -98,10 +163,33 @@ Print("Invalid RSI trigger range input.");
 return INIT_PARAMETERS_INCORRECT;
 }
 
-if(RiskPercent <= 0.0 || RewardToRisk <= 0.0 || AtrStopMultiplier <= 0.0 || MinSlopeAtr < 0.0 || MinTrendDistanceAtr < 0.0 || MaxSpreadAtrRatio < 0.0)
+if(RiskPercent <= 0.0 || RewardToRisk <= 0.0 || AtrStopMultiplier <= 0.0 || MinSlopeAtr < 0.0 ||
+MinTrendDistanceAtr < 0.0 || MaxSpreadAtrRatio < 0.0 || MaxEntryExtensionAtr <= 0.0 ||
+MinDiSeparation < 0.0 || PullbackToleranceAtr < 0.0 || MinAtrPoints < 0 || MaxAtrPoints < 0 ||
+MaxRangeAdx < 0.0 || MinRangeAdx < 0.0 || RangeBoundaryAtr < 0.0 || RangeRewardToRisk <= 0.0 ||
+StructureStopBufferAtr < 0.0 || MaxStructureStopAtr <= 0.0 || MaxTotalOpenPositions < 0)
 {
 Print("Invalid risk input.");
 return INIT_PARAMETERS_INCORRECT;
+}
+
+ActualRewardToRisk = RewardToRisk;
+if(ActualRewardToRisk < 1.1)
+{
+Print("RewardToRisk too low. Forcing minimum 1.1.");
+ActualRewardToRisk = 1.1;
+}
+
+ActualBreakEvenAtR = BreakEvenAtR;
+if(ActualBreakEvenAtR < 0.4)
+{
+ActualBreakEvenAtR = 0.8;
+}
+
+ActualTrailStartR = TrailStartR;
+if(ActualTrailStartR < ActualBreakEvenAtR)
+{
+ActualTrailStartR = ActualBreakEvenAtR + 0.2;
 }
 
 // Parse symbols
@@ -133,6 +221,14 @@ ArrayResize(symbolData, dataIndex + 1);
 
 symbolData[dataIndex].symbol = sym;
 symbolData[dataIndex].lastBarTime = 0;
+symbolData[dataIndex].lastStatus = "Initialized";
+symbolData[dataIndex].lastAdx = 0.0;
+symbolData[dataIndex].lastRsi = 0.0;
+symbolData[dataIndex].lastAtrPoints = 0.0;
+symbolData[dataIndex].lastPlusDi = 0.0;
+symbolData[dataIndex].lastMinusDi = 0.0;
+symbolData[dataIndex].lastMode = "None";
+symbolData[dataIndex].lastScannerStatus = "WAIT: initializing";
 
 symbolData[dataIndex].fastEmaHandle = iMA(sym, SignalTimeframe, FastEmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
 symbolData[dataIndex].slowEmaHandle = iMA(sym, SignalTimeframe, SlowEmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
@@ -140,10 +236,12 @@ symbolData[dataIndex].trendEmaHandle = iMA(sym, SignalTimeframe, TrendEmaPeriod,
 symbolData[dataIndex].higherTrendEmaHandle = iMA(sym, HigherTrendTimeframe, HigherTrendEmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
 symbolData[dataIndex].rsiHandle = iRSI(sym, SignalTimeframe, RsiPeriod, PRICE_CLOSE);
 symbolData[dataIndex].atrHandle = iATR(sym, SignalTimeframe, AtrPeriod);
+symbolData[dataIndex].adxHandle = iADX(sym, SignalTimeframe, AdxPeriod);
 
 if(symbolData[dataIndex].fastEmaHandle == INVALID_HANDLE || symbolData[dataIndex].slowEmaHandle == INVALID_HANDLE ||
 symbolData[dataIndex].trendEmaHandle == INVALID_HANDLE || symbolData[dataIndex].higherTrendEmaHandle == INVALID_HANDLE ||
-symbolData[dataIndex].rsiHandle == INVALID_HANDLE || symbolData[dataIndex].atrHandle == INVALID_HANDLE)
+symbolData[dataIndex].rsiHandle == INVALID_HANDLE || symbolData[dataIndex].atrHandle == INVALID_HANDLE ||
+symbolData[dataIndex].adxHandle == INVALID_HANDLE)
 {
 Print("Could not create indicators for symbol: ", sym);
 return INIT_FAILED;
@@ -156,9 +254,13 @@ Print("No valid symbols were initialized.");
 return INIT_PARAMETERS_INCORRECT;
 }
 
+ArrayResize(lastTradeTime, ArraySize(symbolData));
+ArrayInitialize(lastTradeTime, 0);
+
 trade.SetExpertMagicNumber(MagicNumber);
 trade.SetDeviationInPoints(SlippagePoints);
 
+AttachAdxToChart();
 ResetDailyEquityIfNeeded();
 return INIT_SUCCEEDED;
 }
@@ -182,7 +284,14 @@ if(symbolData[i].rsiHandle != INVALID_HANDLE)
 IndicatorRelease(symbolData[i].rsiHandle);
 if(symbolData[i].atrHandle != INVALID_HANDLE)
 IndicatorRelease(symbolData[i].atrHandle);
+if(symbolData[i].adxHandle != INVALID_HANDLE)
+IndicatorRelease(symbolData[i].adxHandle);
 }
+
+if(chartAdxHandle != INVALID_HANDLE)
+IndicatorRelease(chartAdxHandle);
+
+DeleteDashboard();
 }
 
 //+------------------------------------------------------------------+
@@ -192,33 +301,49 @@ void OnTick()
 {
 ResetDailyEquityIfNeeded();
 ManageOpenPositions();
+UpdateDashboard();
 
 for(int i = 0; i < ArraySize(symbolData); i++)
 {
-ProcessSymbol(symbolData[i]);
+ProcessSymbol(i, symbolData[i]);
 }
+
+UpdateDashboard();
 }
 
 //+------------------------------------------------------------------+
 //| Process a single symbol |
 //+------------------------------------------------------------------+
-void ProcessSymbol(SymbolData &data)
+void ProcessSymbol(const int index, SymbolData &data)
 {
 if(!IsNewSignalBar(data))
 return;
 
 if(!TradingAllowedNow())
+{
+data.lastStatus = "Trading blocked";
+data.lastMode = "Off";
+data.lastScannerStatus = "BLOCKED: session";
 return;
+}
 
 if(IsDailyLossLimitHit())
 {
+data.lastStatus = "Daily loss limit";
+data.lastMode = "Risk";
+data.lastScannerStatus = "BLOCKED: daily loss";
 Print("Daily loss limit reached. No new trades today.");
 return;
 }
 
-double fast[], slow[], trend[], higherTrend[], rsi[], atr[], closePrices[];
-if(!ReadIndicatorData(data, fast, slow, trend, higherTrend, rsi, atr, closePrices))
+double fast[], slow[], trend[], higherTrend[], rsi[], atr[], adx[], plusDi[], minusDi[], closePrices[], highPrices[], lowPrices[];
+if(!ReadIndicatorData(data, fast, slow, trend, higherTrend, rsi, atr, adx, plusDi, minusDi, closePrices, highPrices, lowPrices))
+{
+data.lastStatus = "Waiting for data";
+data.lastMode = "Data";
+data.lastScannerStatus = "WAIT: data";
 return;
+}
 
 const double currentFast = fast[1];
 const double previousFast = fast[2];
@@ -229,60 +354,210 @@ const double currentHigherTrend = higherTrend[1];
 const double currentRsi = rsi[1];
 const double previousRsi = rsi[2];
 const double currentAtr = atr[1];
+const double currentAdx = adx[1];
+const double previousAdx = adx[2];
+const double currentPlusDi = plusDi[1];
+const double currentMinusDi = minusDi[1];
 const double closedPrice = closePrices[1];
+const double closedLow = lowPrices[1];
+const double closedHigh = highPrices[1];
+const double structureHigh = HighestHigh(highPrices, 2, StructureLookbackBars);
+const double structureLow = LowestLow(lowPrices, 2, StructureLookbackBars);
+data.lastAdx = currentAdx;
+data.lastRsi = currentRsi;
+data.lastPlusDi = currentPlusDi;
+data.lastMinusDi = currentMinusDi;
+const double point = SymbolInfoDouble(data.symbol, SYMBOL_POINT);
+const double atrPoints = (point > 0.0) ? currentAtr / point : 0.0;
+data.lastAtrPoints = atrPoints;
 
 if(currentAtr <= 0.0)
+{
+data.lastStatus = "ATR not ready";
+data.lastMode = "Data";
+data.lastScannerStatus = "WAIT: ATR";
 return;
+}
 
 if(!SpreadIsAcceptable(data.symbol, currentAtr))
+{
+data.lastStatus = "Spread blocked";
+data.lastMode = "Blocked";
+data.lastScannerStatus = "BLOCKED: spread";
 return;
+}
+
+if(UseVolatilityFilter && MinAtrPoints > 0 && atrPoints < MinAtrPoints)
+{
+data.lastStatus = "ATR too low";
+data.lastMode = "Blocked";
+data.lastScannerStatus = "BLOCKED: ATR low";
+return;
+}
+
+if(UseVolatilityFilter && MaxAtrPoints > 0 && atrPoints > MaxAtrPoints)
+{
+data.lastStatus = "ATR too high";
+data.lastMode = "Blocked";
+data.lastScannerStatus = "BLOCKED: ATR high";
+return;
+}
 
 const double fastSlopeAtr = (currentFast - previousFast) / currentAtr;
 const double trendDistanceAtr = MathAbs(closedPrice - currentTrend) / currentAtr;
+const double entryExtensionAtr = MathAbs(closedPrice - currentFast) / currentAtr;
 
 const bool buyCross = previousFast <= previousSlow && currentFast > currentSlow;
 const bool sellCross = previousFast >= previousSlow && currentFast < currentSlow;
 const bool buyHigherTrend = !RequireHigherTimeframeTrend || closedPrice > currentHigherTrend;
 const bool sellHigherTrend = !RequireHigherTimeframeTrend || closedPrice < currentHigherTrend;
+const bool entryNotExtended = entryExtensionAtr <= MaxEntryExtensionAtr;
+const bool buyDiStrong = !RequireDirectionalDi || (currentPlusDi > currentMinusDi && (currentPlusDi - currentMinusDi) >= MinDiSeparation);
+const bool sellDiStrong = !RequireDirectionalDi || (currentMinusDi > currentPlusDi && (currentMinusDi - currentPlusDi) >= MinDiSeparation);
+const bool buyPullbackQuality = !RequirePullbackToEma ||
+closedLow <= MathMax(currentFast, currentSlow) + (currentAtr * PullbackToleranceAtr);
+const bool sellPullbackQuality = !RequirePullbackToEma ||
+closedHigh >= MathMin(currentFast, currentSlow) - (currentAtr * PullbackToleranceAtr);
 const bool buyTrend = closedPrice > currentTrend && buyHigherTrend && currentFast > currentSlow &&
-fastSlopeAtr >= MinSlopeAtr && trendDistanceAtr >= MinTrendDistanceAtr;
+fastSlopeAtr >= MinSlopeAtr && trendDistanceAtr >= MinTrendDistanceAtr && entryNotExtended && buyDiStrong && buyPullbackQuality;
 const bool sellTrend = closedPrice < currentTrend && sellHigherTrend && currentFast < currentSlow &&
-fastSlopeAtr <= -MinSlopeAtr && trendDistanceAtr >= MinTrendDistanceAtr;
+fastSlopeAtr <= -MinSlopeAtr && trendDistanceAtr >= MinTrendDistanceAtr && entryNotExtended && sellDiStrong && sellPullbackQuality;
 const bool buyPullbackResume = previousRsi < BuyRsiTrigger && currentRsi >= BuyRsiTrigger && currentRsi <= BuyRsiMax;
 const bool sellPullbackResume = previousRsi > SellRsiTrigger && currentRsi <= SellRsiTrigger && currentRsi >= SellRsiMin;
+const bool strongBuyRsi = !UseStrongRsiFilter || (currentRsi >= StrongBuyRsiMin && currentRsi <= StrongBuyRsiMax);
+const bool strongSellRsi = !UseStrongRsiFilter || (currentRsi >= StrongSellRsiMin && currentRsi <= StrongSellRsiMax);
+const bool buyRsiMomentum = !RequireRsiMomentum || currentRsi > previousRsi;
+const bool sellRsiMomentum = !RequireRsiMomentum || currentRsi < previousRsi;
+const bool buyBreakOfStructure = !RequireBreakOfPreviousBar || closedPrice > structureHigh;
+const bool sellBreakOfStructure = !RequireBreakOfPreviousBar || closedPrice < structureLow;
+const bool trendMode = !UseAdxFilter || currentAdx >= MinAdx;
+const bool adxTrendQuality = !UseAdxFilter || !RequireAdxRising || currentAdx > previousAdx;
+const bool rangeMode = EnableRangeMode && currentAdx >= MinRangeAdx && currentAdx <= MaxRangeAdx;
+const bool nearRangeLow = closedLow <= structureLow + (currentAtr * RangeBoundaryAtr);
+const bool nearRangeHigh = closedHigh >= structureHigh - (currentAtr * RangeBoundaryAtr);
+const bool buyRangeSignal = rangeMode && nearRangeLow && currentRsi <= RangeBuyRsi && closedPrice > structureLow;
+const bool sellRangeSignal = rangeMode && nearRangeHigh && currentRsi >= RangeSellRsi && closedPrice < structureHigh;
 
 ENUM_ORDER_TYPE signal = ORDER_TYPE_BUY;
 bool hasSignal = false;
-if(buyTrend && (buyPullbackResume || (AllowFreshEmaCrossEntries && buyCross && currentRsi <= BuyRsiMax)))
+bool isRangeSignal = false;
+if(trendMode && adxTrendQuality && buyTrend && strongBuyRsi && buyRsiMomentum && buyBreakOfStructure &&
+(buyPullbackResume || (AllowFreshEmaCrossEntries && buyCross && currentRsi <= BuyRsiMax)))
 {
 signal = ORDER_TYPE_BUY;
 hasSignal = true;
+data.lastMode = "Trend";
 }
-else if(sellTrend && (sellPullbackResume || (AllowFreshEmaCrossEntries && sellCross && currentRsi >= SellRsiMin)))
+else if(trendMode && adxTrendQuality && sellTrend && strongSellRsi && sellRsiMomentum && sellBreakOfStructure &&
+(sellPullbackResume || (AllowFreshEmaCrossEntries && sellCross && currentRsi >= SellRsiMin)))
 {
 signal = ORDER_TYPE_SELL;
 hasSignal = true;
+data.lastMode = "Trend";
 }
+else if(buyRangeSignal)
+{
+signal = ORDER_TYPE_BUY;
+hasSignal = true;
+isRangeSignal = true;
+data.lastMode = "Range";
+}
+else if(sellRangeSignal)
+{
+signal = ORDER_TYPE_SELL;
+hasSignal = true;
+isRangeSignal = true;
+data.lastMode = "Range";
+}
+
+const bool cooldown = IsInCooldown(index);
+const bool hasOpenPosition = CountOpenPositionsForSymbol(data.symbol) > 0;
+data.lastScannerStatus = GetSignalStatus(currentRsi, currentAdx, currentPlusDi, currentMinusDi, cooldown, hasOpenPosition);
 
 if(hasSignal)
 {
-// Check for auto-reverse
-if(EnableAutoReverse)
+data.lastStatus = ((signal == ORDER_TYPE_BUY) ? "Buy " : "Sell ") + data.lastMode;
+if(cooldown)
 {
-CloseOppositePosition(data.symbol, signal);
-}
-if(CountOpenPositionsForSymbol(data.symbol) >= MaxPositionsPerSymbol)
+data.lastStatus = "Cooldown blocked";
 return;
-
-OpenTrade(signal, currentAtr, data.symbol);
 }
+
+if(!ExecuteFlipIfNeeded(data.symbol, signal))
+{
+data.lastStatus = "Flip/duplicate blocked";
+return;
+}
+
+if(hasOpenPosition && CountOpenPositionsForSymbol(data.symbol) >= MaxPositionsPerSymbol)
+{
+data.lastStatus = "Position limit";
+return;
+}
+
+if(MaxDailyNewTrades > 0 && dailyNewTrades >= MaxDailyNewTrades)
+{
+data.lastStatus = "Daily trade limit";
+Print("Maximum daily new trades reached: ", dailyNewTrades);
+return;
+}
+
+if(MaxTotalOpenPositions > 0 && CountOpenPositionsForMagic() >= MaxTotalOpenPositions)
+{
+data.lastStatus = "Total position limit";
+data.lastScannerStatus = "BLOCKED: total positions";
+return;
+}
+
+if(OpenTrade(signal, currentAtr, data.symbol, isRangeSignal, structureHigh, structureLow))
+{
+MarkTradeTime(index);
+data.lastStatus = ((signal == ORDER_TYPE_BUY) ? "Buy opened " : "Sell opened ") + data.lastMode;
+data.lastScannerStatus = "BLOCKED: cooldown";
+}
+else
+{
+data.lastStatus = "Trade failed";
+}
+}
+else
+{
+data.lastMode = rangeMode ? "Range watch" : (trendMode ? "Trend watch" : "No mode");
+data.lastStatus = BuildNoSignalReason(trendMode, rangeMode, adxTrendQuality, entryNotExtended,
+buyDiStrong, sellDiStrong, buyPullbackQuality, sellPullbackQuality, buyTrend, sellTrend,
+buyPullbackResume, sellPullbackResume, buyBreakOfStructure, sellBreakOfStructure,
+buyRangeSignal, sellRangeSignal, nearRangeLow, nearRangeHigh, currentRsi);
+}
+}
+
+//+------------------------------------------------------------------+
+//| Flip existing positions in favour of the new valid signal |
+//+------------------------------------------------------------------+
+bool ExecuteFlipIfNeeded(const string symbol, const ENUM_ORDER_TYPE newOrderType)
+{
+if(CountOpenPositionsByType(symbol, newOrderType) > 0)
+return false;
+
+if(!HasOppositePosition(symbol, newOrderType))
+return true;
+
+if(!EnableAutoReverse)
+return false;
+
+if(!CloseOppositePosition(symbol, newOrderType))
+return false;
+
+Print("Flipped ", symbol, " in favour of ", EnumToString(newOrderType));
+return true;
 }
 
 //+------------------------------------------------------------------+
 //| Close opposite position for auto-reverse |
 //+------------------------------------------------------------------+
-void CloseOppositePosition(const string symbol, const ENUM_ORDER_TYPE newOrderType)
+bool CloseOppositePosition(const string symbol, const ENUM_ORDER_TYPE newOrderType)
 {
+bool allClosed = true;
+
 for(int i = PositionsTotal() - 1; i >= 0; i--)
 {
 const ulong ticket = PositionGetTicket(i);
@@ -302,26 +577,53 @@ const bool isOpposite = (newOrderType == ORDER_TYPE_BUY && currentType == POSITI
 if(isOpposite)
 {
 if(!trade.PositionClose(ticket))
-Print("Failed to close opposite position. Retcode: ", trade.ResultRetcode());
+{
+allClosed = false;
+Print("Failed to close opposite position. Ticket=", ticket,
+" Retcode: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
 }
 }
+}
+
+return allClosed;
 }
 
 //+------------------------------------------------------------------+
 //| Open a new position |
 //+------------------------------------------------------------------+
-void OpenTrade(const ENUM_ORDER_TYPE orderType, const double atrValue, const string symbol)
+bool OpenTrade(const ENUM_ORDER_TYPE orderType, const double atrValue, const string symbol,
+const bool isRangeTrade = false, const double structureHigh = 0.0, const double structureLow = 0.0)
 {
 if(atrValue <= 0.0)
-return;
+return false;
 
 const double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
 const double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
 const double entry = (orderType == ORDER_TYPE_BUY) ? ask : bid;
-const double stopDistance = NormalizePriceDistance(atrValue * AtrStopMultiplier, symbol);
+const double rewardMultiplier = isRangeTrade ? RangeRewardToRisk : ActualRewardToRisk;
+double stopDistance = atrValue * AtrStopMultiplier;
+
+if(UseStructureStops && !isRangeTrade)
+{
+double structureStop = 0.0;
+if(orderType == ORDER_TYPE_BUY && structureLow > 0.0)
+structureStop = structureLow - (atrValue * StructureStopBufferAtr);
+else if(orderType == ORDER_TYPE_SELL && structureHigh > 0.0)
+structureStop = structureHigh + (atrValue * StructureStopBufferAtr);
+
+if(structureStop > 0.0)
+{
+const double structureDistance = MathAbs(entry - structureStop);
+const double maxStructureDistance = atrValue * MaxStructureStopAtr;
+if(structureDistance <= maxStructureDistance)
+stopDistance = MathMax(stopDistance, structureDistance);
+}
+}
+
+stopDistance = NormalizePriceDistance(stopDistance, symbol);
 
 if(stopDistance <= 0.0)
-return;
+return false;
 
 double stopLoss = 0.0;
 double takeProfit = 0.0;
@@ -329,12 +631,12 @@ double takeProfit = 0.0;
 if(orderType == ORDER_TYPE_BUY)
 {
 stopLoss = entry - stopDistance;
-takeProfit = entry + (stopDistance * RewardToRisk);
+takeProfit = entry + (stopDistance * rewardMultiplier);
 }
 else
 {
 stopLoss = entry + stopDistance;
-takeProfit = entry - (stopDistance * RewardToRisk);
+takeProfit = entry - (stopDistance * rewardMultiplier);
 }
 
 stopLoss = NormalizeDouble(stopLoss, (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS));
@@ -344,17 +646,26 @@ const double lots = CalculateRiskBasedVolume(stopDistance, symbol);
 if(lots <= 0.0)
 {
 Print("Calculated lot size is invalid.");
-return;
+return false;
 }
 
 bool result = false;
 if(orderType == ORDER_TYPE_BUY)
-result = trade.Buy(lots, symbol, 0.0, stopLoss, takeProfit, "SmartRiskTrendBot buy");
+result = trade.Buy(lots, symbol, 0.0, stopLoss, takeProfit, isRangeTrade ? "SmartRiskTrendBot range buy" : "SmartRiskTrendBot trend buy");
 else
-result = trade.Sell(lots, symbol, 0.0, stopLoss, takeProfit, "SmartRiskTrendBot sell");
+result = trade.Sell(lots, symbol, 0.0, stopLoss, takeProfit, isRangeTrade ? "SmartRiskTrendBot range sell" : "SmartRiskTrendBot trend sell");
 
-if(!result)
+if(result)
+{
+dailyNewTrades++;
+return IsTradeRetcodeSuccess(trade.ResultRetcode());
+}
+else
+{
 Print("Trade failed. Retcode: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
+}
+
+return false;
 }
 
 //+------------------------------------------------------------------+
@@ -399,14 +710,14 @@ const double currentPrice = (type == POSITION_TYPE_BUY) ? SymbolInfoDouble(posSy
 if(stopLoss <= 0.0)
 continue;
 
-const double initialRisk = MathAbs(entry - stopLoss);
+const double initialRisk = EstimateInitialRiskDistance(type, entry, stopLoss, takeProfit);
 if(initialRisk <= 0.0)
 continue;
 
 const double profitDistance = (type == POSITION_TYPE_BUY) ? currentPrice - entry : entry - currentPrice;
 double newStopLoss = stopLoss;
 
-if(UseBreakEven && profitDistance >= initialRisk * BreakEvenAtR)
+if(UseBreakEven && profitDistance >= initialRisk * ActualBreakEvenAtR)
 {
 const double breakEvenStop = (type == POSITION_TYPE_BUY)
 ? entry + BreakEvenBufferPoints * SymbolInfoDouble(posSymbol, SYMBOL_POINT)
@@ -416,7 +727,7 @@ if(IsBetterStop(type, breakEvenStop, newStopLoss))
 newStopLoss = breakEvenStop;
 }
 
-if(UseTrailingStop && profitDistance >= initialRisk * TrailStartR && atr[1] > 0.0)
+if(UseTrailingStop && profitDistance >= initialRisk * ActualTrailStartR && atr[1] > 0.0)
 {
 const double trailDistance = NormalizePriceDistance(atr[1] * TrailAtrMultiplier, posSymbol);
 const double trailStop = (type == POSITION_TYPE_BUY)
@@ -439,7 +750,8 @@ Print("Position modify failed. Retcode: ", trade.ResultRetcode(), " - ", trade.R
 //+------------------------------------------------------------------+
 //| Helpers |
 //+------------------------------------------------------------------+
-bool ReadIndicatorData(const SymbolData &data, double &fast[], double &slow[], double &trend[], double &higherTrend[], double &rsi[], double &atr[], double &closePrices[])
+bool ReadIndicatorData(const SymbolData &data, double &fast[], double &slow[], double &trend[], double &higherTrend[], double &rsi[],
+double &atr[], double &adx[], double &plusDi[], double &minusDi[], double &closePrices[], double &highPrices[], double &lowPrices[])
 {
 ArraySetAsSeries(fast, true);
 ArraySetAsSeries(slow, true);
@@ -447,7 +759,12 @@ ArraySetAsSeries(trend, true);
 ArraySetAsSeries(higherTrend, true);
 ArraySetAsSeries(rsi, true);
 ArraySetAsSeries(atr, true);
+ArraySetAsSeries(adx, true);
+ArraySetAsSeries(plusDi, true);
+ArraySetAsSeries(minusDi, true);
 ArraySetAsSeries(closePrices, true);
+ArraySetAsSeries(highPrices, true);
+ArraySetAsSeries(lowPrices, true);
 
 if(CopyBuffer(data.fastEmaHandle, 0, 0, 4, fast) < 4)
 return false;
@@ -461,10 +778,84 @@ if(CopyBuffer(data.rsiHandle, 0, 0, 4, rsi) < 4)
 return false;
 if(CopyBuffer(data.atrHandle, 0, 0, 4, atr) < 4)
 return false;
-if(CopyClose(data.symbol, SignalTimeframe, 0, 4, closePrices) < 4)
+if(CopyBuffer(data.adxHandle, 0, 0, 4, adx) < 4)
+return false;
+if(CopyBuffer(data.adxHandle, 1, 0, 4, plusDi) < 4)
+return false;
+if(CopyBuffer(data.adxHandle, 2, 0, 4, minusDi) < 4)
+return false;
+if(CopyClose(data.symbol, SignalTimeframe, 0, StructureLookbackBars + 3, closePrices) < StructureLookbackBars + 3)
+return false;
+if(CopyHigh(data.symbol, SignalTimeframe, 0, StructureLookbackBars + 3, highPrices) < StructureLookbackBars + 3)
+return false;
+if(CopyLow(data.symbol, SignalTimeframe, 0, StructureLookbackBars + 3, lowPrices) < StructureLookbackBars + 3)
 return false;
 
 return true;
+}
+
+double HighestHigh(const double &values[], const int startIndex, const int count)
+{
+double result = values[startIndex];
+for(int i = startIndex + 1; i < startIndex + count; i++)
+{
+if(values[i] > result)
+result = values[i];
+}
+return result;
+}
+
+double LowestLow(const double &values[], const int startIndex, const int count)
+{
+double result = values[startIndex];
+for(int i = startIndex + 1; i < startIndex + count; i++)
+{
+if(values[i] < result)
+result = values[i];
+}
+return result;
+}
+
+string BuildNoSignalReason(const bool trendMode, const bool rangeMode, const bool adxTrendQuality,
+const bool entryNotExtended, const bool buyDiStrong, const bool sellDiStrong,
+const bool buyPullbackQuality, const bool sellPullbackQuality, const bool buyTrend, const bool sellTrend,
+const bool buyPullbackResume, const bool sellPullbackResume, const bool buyBreakOfStructure,
+const bool sellBreakOfStructure, const bool buyRangeSignal, const bool sellRangeSignal,
+const bool nearRangeLow, const bool nearRangeHigh, const double currentRsi)
+{
+if(trendMode)
+{
+if(!adxTrendQuality)
+return "Trend blocked: ADX not rising";
+if(!entryNotExtended)
+return "Trend blocked: entry extended";
+if(!buyDiStrong && !sellDiStrong)
+return "Trend blocked: weak DI";
+if(!buyPullbackQuality && !sellPullbackQuality)
+return "Trend blocked: no EMA pullback";
+if(!buyTrend && !sellTrend)
+return "Trend waiting: EMA/trend align";
+if(!buyPullbackResume && !sellPullbackResume)
+return "Trend waiting: RSI cross";
+if(!buyBreakOfStructure && !sellBreakOfStructure)
+return "Trend waiting: structure break";
+
+return "Trend waiting: confirmation";
+}
+
+if(rangeMode)
+{
+if(!nearRangeLow && !nearRangeHigh)
+return "Range waiting: boundary";
+if(currentRsi > RangeBuyRsi && currentRsi < RangeSellRsi)
+return "Range waiting: RSI extreme";
+if(!buyRangeSignal && !sellRangeSignal)
+return "Range waiting: bounce close";
+
+return "Range waiting: confirmation";
+}
+
+return "No mode: ADX outside ranges";
 }
 
 bool IsNewSignalBar(SymbolData &data)
@@ -485,11 +876,14 @@ bool TradingAllowedNow()
 if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED))
 return false;
 
-if(!UseTradingHours)
-return true;
-
 MqlDateTime dt;
 TimeToStruct(TimeCurrent(), dt);
+
+if((TradeMondayToFridayOnly || UseWeekdayFilter) && (dt.day_of_week == 0 || dt.day_of_week == 6))
+return false;
+
+if(!UseTradingHours)
+return true;
 
 if(StartHour == EndHour)
 return true;
@@ -508,6 +902,7 @@ TimeToStruct(TimeCurrent(), dt);
 if(dt.day_of_year != trackedDayOfYear || dayStartEquity <= 0.0)
 {
 trackedDayOfYear = dt.day_of_year;
+dailyNewTrades = 0;
 dayStartEquity = AccountInfoDouble(ACCOUNT_EQUITY);
 }
 }
@@ -557,6 +952,389 @@ count++;
 }
 
 return count;
+}
+
+int CountOpenPositionsByType(const string symbol, const ENUM_ORDER_TYPE orderType)
+{
+int count = 0;
+const ENUM_POSITION_TYPE positionType = (orderType == ORDER_TYPE_BUY) ? POSITION_TYPE_BUY : POSITION_TYPE_SELL;
+
+for(int i = PositionsTotal() - 1; i >= 0; i--)
+{
+const ulong ticket = PositionGetTicket(i);
+if(ticket == 0 || !PositionSelectByTicket(ticket))
+continue;
+
+if(PositionGetString(POSITION_SYMBOL) != symbol)
+continue;
+
+if((ulong)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
+continue;
+
+if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) == positionType)
+count++;
+}
+
+return count;
+}
+
+bool HasOppositePosition(const string symbol, const ENUM_ORDER_TYPE orderType)
+{
+const ENUM_POSITION_TYPE oppositeType = (orderType == ORDER_TYPE_BUY) ? POSITION_TYPE_SELL : POSITION_TYPE_BUY;
+
+for(int i = PositionsTotal() - 1; i >= 0; i--)
+{
+const ulong ticket = PositionGetTicket(i);
+if(ticket == 0 || !PositionSelectByTicket(ticket))
+continue;
+
+if(PositionGetString(POSITION_SYMBOL) != symbol)
+continue;
+
+if((ulong)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
+continue;
+
+if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) == oppositeType)
+return true;
+}
+
+return false;
+}
+
+double GetOpenPL()
+{
+double openPL = 0.0;
+
+for(int i = PositionsTotal() - 1; i >= 0; i--)
+{
+const ulong ticket = PositionGetTicket(i);
+if(ticket == 0 || !PositionSelectByTicket(ticket))
+continue;
+
+if((ulong)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
+continue;
+
+openPL += PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+}
+
+return openPL;
+}
+
+double GetTodayClosedPL(int &wins, int &losses, int &closedTrades)
+{
+wins = 0;
+losses = 0;
+closedTrades = 0;
+double closedPL = 0.0;
+
+const datetime todayStart = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
+if(!HistorySelect(todayStart, TimeCurrent()))
+return 0.0;
+
+for(int i = HistoryDealsTotal() - 1; i >= 0; i--)
+{
+const ulong ticket = HistoryDealGetTicket(i);
+if(ticket == 0)
+continue;
+
+if((ulong)HistoryDealGetInteger(ticket, DEAL_MAGIC) != MagicNumber)
+continue;
+
+if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(ticket, DEAL_ENTRY) != DEAL_ENTRY_OUT)
+continue;
+
+const double profit = HistoryDealGetDouble(ticket, DEAL_PROFIT) +
+HistoryDealGetDouble(ticket, DEAL_SWAP) +
+HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+
+closedPL += profit;
+closedTrades++;
+
+if(profit > 0.0)
+wins++;
+else if(profit < 0.0)
+losses++;
+}
+
+return closedPL;
+}
+
+int CountOpenPositionsForMagic()
+{
+int count = 0;
+
+for(int i = PositionsTotal() - 1; i >= 0; i--)
+{
+const ulong ticket = PositionGetTicket(i);
+if(ticket == 0 || !PositionSelectByTicket(ticket))
+continue;
+
+if((ulong)PositionGetInteger(POSITION_MAGIC) == MagicNumber)
+count++;
+}
+
+return count;
+}
+
+bool IsInCooldown(const int index)
+{
+if(TradeCooldownMinutes <= 0)
+return false;
+
+if(index < 0 || index >= ArraySize(lastTradeTime))
+return false;
+
+if(lastTradeTime[index] == 0)
+return false;
+
+return (TimeCurrent() - lastTradeTime[index]) < TradeCooldownMinutes * 60;
+}
+
+void MarkTradeTime(const int index)
+{
+if(index < 0 || index >= ArraySize(lastTradeTime))
+return;
+
+lastTradeTime[index] = TimeCurrent();
+}
+
+bool IsTradeRetcodeSuccess(const uint retcode)
+{
+return retcode == TRADE_RETCODE_DONE ||
+retcode == TRADE_RETCODE_DONE_PARTIAL ||
+retcode == TRADE_RETCODE_PLACED;
+}
+
+string GetSignalStatus(const double rsi, const double adx, const double plusDi, const double minusDi,
+const bool cooldown, const bool hasPosition)
+{
+if(cooldown)
+return "BLOCKED: cooldown";
+
+if(hasPosition)
+return "BLOCKED: position open";
+
+if(adx >= MinAdx)
+{
+if(!RequireDirectionalDi)
+{
+if(rsi > 50.0)
+return "BUY";
+if(rsi < 50.0)
+return "SELL";
+
+return "WAIT: RSI neutral";
+}
+
+if(plusDi > minusDi + MinDiSeparation && rsi > 50.0)
+return "BUY";
+
+if(minusDi > plusDi + MinDiSeparation && rsi < 50.0)
+return "SELL";
+
+return "WAIT: DI not clear";
+}
+
+if(EnableRangeMode && adx >= MinRangeAdx && adx <= MaxRangeAdx)
+return "WAIT: range mode";
+
+return "WAIT: ADX outside ranges";
+}
+
+string DiLeadText(const double plusDi, const double minusDi)
+{
+if(plusDi > minusDi + MinDiSeparation)
+return "+DI lead";
+
+if(minusDi > plusDi + MinDiSeparation)
+return "-DI lead";
+
+return "DI flat";
+}
+
+string BuildScannerLine(const SymbolData &data)
+{
+return data.symbol +
+" | RSI " + DoubleToString(data.lastRsi, 2) +
+" | ADX " + DoubleToString(data.lastAdx, 2) +
+" | " + DiLeadText(data.lastPlusDi, data.lastMinusDi) +
+" | " + data.lastScannerStatus;
+}
+
+void AttachAdxToChart()
+{
+if(CleanDuplicateAdxOnInit)
+RemoveAdxIndicatorsFromChart();
+
+if(chartAdxHandle != INVALID_HANDLE)
+IndicatorRelease(chartAdxHandle);
+
+chartAdxHandle = INVALID_HANDLE;
+
+if(!ShowAdxOnChart)
+return;
+
+chartAdxHandle = iADX(_Symbol, PERIOD_CURRENT, AdxPeriod);
+if(chartAdxHandle == INVALID_HANDLE)
+{
+Print("Could not create chart ADX display handle.");
+return;
+}
+
+const int subWindow = (int)ChartGetInteger(0, CHART_WINDOWS_TOTAL);
+if(!ChartIndicatorAdd(0, subWindow, chartAdxHandle))
+{
+Print("Could not attach ADX to chart. Error: ", GetLastError());
+}
+}
+
+void RemoveAdxIndicatorsFromChart()
+{
+const int windows = (int)ChartGetInteger(0, CHART_WINDOWS_TOTAL);
+
+for(int window = windows - 1; window >= 0; window--)
+{
+const int total = ChartIndicatorsTotal(0, window);
+
+for(int i = total - 1; i >= 0; i--)
+{
+const string indicatorName = ChartIndicatorName(0, window, i);
+const bool isAdx = StringFind(indicatorName, "ADX") >= 0 ||
+StringFind(indicatorName, "Average Directional") >= 0;
+
+if(isAdx && !ChartIndicatorDelete(0, window, indicatorName))
+Print("Could not remove ADX indicator: ", indicatorName, " Error: ", GetLastError());
+}
+}
+}
+
+string BoolText(const bool value)
+{
+return value ? "yes" : "no";
+}
+
+void SetDashboardLabel(const string name, const int row, const string text, const color textColor)
+{
+const string objectName = "SmartRiskDash_" + name;
+const int x = DashboardX + 12;
+const int y = DashboardY + 12 + (row * 18);
+
+if(ObjectFind(0, objectName) < 0)
+{
+ObjectCreate(0, objectName, OBJ_LABEL, 0, 0, 0);
+ObjectSetInteger(0, objectName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+ObjectSetInteger(0, objectName, OBJPROP_FONTSIZE, 9);
+ObjectSetString(0, objectName, OBJPROP_FONT, "Consolas");
+ObjectSetInteger(0, objectName, OBJPROP_SELECTABLE, false);
+ObjectSetInteger(0, objectName, OBJPROP_HIDDEN, true);
+}
+
+ObjectSetInteger(0, objectName, OBJPROP_XDISTANCE, x);
+ObjectSetInteger(0, objectName, OBJPROP_YDISTANCE, y);
+ObjectSetInteger(0, objectName, OBJPROP_COLOR, textColor);
+ObjectSetString(0, objectName, OBJPROP_TEXT, text);
+}
+
+void DeleteDashboard()
+{
+string names[] = {"panel", "title", "equity", "closed", "open", "total", "drawdown", "trades", "filters", "quality", "symbols", "status", "symbolstatus", "scannerheader"};
+
+for(int i = 0; i < ArraySize(names); i++)
+ObjectDelete(0, "SmartRiskDash_" + names[i]);
+
+for(int i = 0; i < 100; i++)
+ObjectDelete(0, "SmartRiskDash_scanner" + IntegerToString(i));
+}
+
+void UpdateDashboard()
+{
+if(!ShowDashboard)
+{
+DeleteDashboard();
+return;
+}
+
+const datetime now = TimeCurrent();
+if(lastDashboardUpdate == now)
+return;
+lastDashboardUpdate = now;
+
+int wins = 0;
+int losses = 0;
+int closedTrades = 0;
+const double openPL = GetOpenPL();
+const double closedPL = GetTodayClosedPL(wins, losses, closedTrades);
+const double totalPL = openPL + closedPL;
+const double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+const double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+const double drawdownPercent = (dayStartEquity > 0.0) ? MathMax(0.0, (dayStartEquity - equity) / dayStartEquity * 100.0) : 0.0;
+const double winRate = (closedTrades > 0) ? (double)wins / closedTrades * 100.0 : 0.0;
+const int openPositions = CountOpenPositionsForMagic();
+
+const string panelName = "SmartRiskDash_panel";
+if(ObjectFind(0, panelName) < 0)
+{
+ObjectCreate(0, panelName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+ObjectSetInteger(0, panelName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+ObjectSetInteger(0, panelName, OBJPROP_XSIZE, 460);
+ObjectSetInteger(0, panelName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+ObjectSetInteger(0, panelName, OBJPROP_SELECTABLE, false);
+ObjectSetInteger(0, panelName, OBJPROP_HIDDEN, true);
+}
+
+const int scannerRows = ShowSymbolScanner ? ArraySize(symbolData) + 1 : 0;
+const int panelHeight = 268 + (scannerRows * 18);
+ObjectSetInteger(0, panelName, OBJPROP_XSIZE, 560);
+ObjectSetInteger(0, panelName, OBJPROP_YSIZE, panelHeight);
+ObjectSetInteger(0, panelName, OBJPROP_XDISTANCE, DashboardX);
+ObjectSetInteger(0, panelName, OBJPROP_YDISTANCE, DashboardY);
+ObjectSetInteger(0, panelName, OBJPROP_BGCOLOR, DashboardPanelColor);
+ObjectSetInteger(0, panelName, OBJPROP_COLOR, clrDimGray);
+
+const string currency = AccountInfoString(ACCOUNT_CURRENCY);
+const color closedColor = (closedPL > 0.0) ? clrLime : (closedPL < 0.0) ? clrTomato : DashboardTextColor;
+const color openColor = (openPL > 0.0) ? clrLime : (openPL < 0.0) ? clrTomato : DashboardTextColor;
+const color totalColor = (totalPL > 0.0) ? clrLime : (totalPL < 0.0) ? clrTomato : DashboardTextColor;
+const color ddColor = (drawdownPercent >= MaxDailyLossPercent * 0.8) ? clrTomato : DashboardTextColor;
+const string sessionStatus = TradingAllowedNow() ? "Trading allowed" : "Trading blocked";
+string symbolStatus = "";
+for(int i = 0; i < ArraySize(symbolData); i++)
+{
+if(i > 0)
+symbolStatus += " | ";
+symbolStatus += symbolData[i].symbol + " " + symbolData[i].lastMode +
+": ADX " + DoubleToString(symbolData[i].lastAdx, 1) +
+" RSI " + DoubleToString(symbolData[i].lastRsi, 1) +
+" ATR " + DoubleToString(symbolData[i].lastAtrPoints, 0) + " " + symbolData[i].lastStatus;
+}
+
+SetDashboardLabel("title", 0, "SmartRiskTrendBot P/L Dashboard", clrDeepSkyBlue);
+SetDashboardLabel("equity", 1, "Balance: " + DoubleToString(balance, 2) + "  Equity: " + DoubleToString(equity, 2) + " " + currency, DashboardTextColor);
+SetDashboardLabel("closed", 2, "Today closed P/L: " + DoubleToString(closedPL, 2) + " " + currency, closedColor);
+SetDashboardLabel("open", 3, "Open floating P/L: " + DoubleToString(openPL, 2) + " " + currency, openColor);
+SetDashboardLabel("total", 4, "Total today P/L: " + DoubleToString(totalPL, 2) + " " + currency, totalColor);
+SetDashboardLabel("drawdown", 5, "Daily DD: " + DoubleToString(drawdownPercent, 2) + "% / " + DoubleToString(MaxDailyLossPercent, 2) + "%", ddColor);
+SetDashboardLabel("trades", 6, "Closed: " + IntegerToString(closedTrades) + "  Wins: " + IntegerToString(wins) + "  Losses: " + IntegerToString(losses) + "  Win: " + DoubleToString(winRate, 1) + "%", DashboardTextColor);
+SetDashboardLabel("filters", 7, "Trend: ADX >= " + DoubleToString(MinAdx, 1) + " rising=" + BoolText(RequireAdxRising) + "  DI sep >= " + DoubleToString(MinDiSeparation, 1), DashboardTextColor);
+SetDashboardLabel("quality", 8, "Range: " + BoolText(EnableRangeMode) + " ADX " + DoubleToString(MinRangeAdx, 1) + "-" + DoubleToString(MaxRangeAdx, 1) + " RSI " + DoubleToString(RangeBuyRsi, 0) + "/" + DoubleToString(RangeSellRsi, 0), DashboardTextColor);
+SetDashboardLabel("symbols", 9, "Open positions: " + IntegerToString(openPositions) + "/" + IntegerToString(MaxTotalOpenPositions) + "  New trades: " + IntegerToString(dailyNewTrades) + "/" + IntegerToString(MaxDailyNewTrades), DashboardTextColor);
+SetDashboardLabel("status", 10, "Status: " + sessionStatus + "  Symbols: " + Symbols, clrKhaki);
+SetDashboardLabel("symbolstatus", 11, symbolStatus, clrKhaki);
+
+if(ShowSymbolScanner)
+{
+SetDashboardLabel("scannerheader", 12, "Scanner: symbol | RSI | ADX | DI lead | status", clrDeepSkyBlue);
+for(int i = 0; i < ArraySize(symbolData); i++)
+SetDashboardLabel("scanner" + IntegerToString(i), 13 + i, BuildScannerLine(symbolData[i]), DashboardTextColor);
+}
+else
+{
+ObjectDelete(0, "SmartRiskDash_scannerheader");
+for(int i = 0; i < 100; i++)
+ObjectDelete(0, "SmartRiskDash_scanner" + IntegerToString(i));
+}
+
+ChartRedraw();
 }
 
 double CalculateRiskBasedVolume(const double stopDistancePrice, const string symbol)
@@ -612,6 +1390,18 @@ double NormalizePriceDistance(const double distance, const string symbol)
 const int stopLevel = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
 const double minDistance = stopLevel * SymbolInfoDouble(symbol, SYMBOL_POINT);
 return MathMax(distance, minDistance);
+}
+
+double EstimateInitialRiskDistance(const ENUM_POSITION_TYPE type, const double entry, const double stopLoss, const double takeProfit)
+{
+if(takeProfit > 0.0 && ActualRewardToRisk > 0.0)
+{
+const double rewardDistance = (type == POSITION_TYPE_BUY) ? takeProfit - entry : entry - takeProfit;
+if(rewardDistance > 0.0)
+return rewardDistance / ActualRewardToRisk;
+}
+
+return MathAbs(entry - stopLoss);
 }
 
 bool IsBetterStop(const ENUM_POSITION_TYPE type, const double candidateStop, const double currentStop)
