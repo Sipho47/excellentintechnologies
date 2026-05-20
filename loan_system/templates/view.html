@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Loan | Loan System</title>
+    <style>
+        :root {
+            --ink: #17202a;
+            --muted: #687385;
+            --line: #dfe5ec;
+            --brand: #176c5f;
+            --brand-dark: #0f4f46;
+            --paper: #ffffff;
+            --wash: #f4f7f9;
+            --danger: #b42318;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--wash);
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(720px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 42px 0;
+        }
+
+        .panel {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .head,
+        .body { padding: 22px; }
+
+        .head {
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 0;
+        }
+
+        .hint {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .details {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .detail {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            background: #f9fbfc;
+        }
+
+        .label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .value {
+            margin-top: 6px;
+            font-size: 18px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        button,
+        .button {
+            min-height: 40px;
+            border: 0;
+            border-radius: 6px;
+            padding: 0 14px;
+            color: #fff;
+            background: var(--brand);
+            font: inherit;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover,
+        .button:hover { background: var(--brand-dark); }
+
+        .button.subtle {
+            color: var(--ink);
+            background: #eef3f5;
+            border: 1px solid var(--line);
+        }
+
+        .button.subtle:hover { background: #e1e9ed; }
+
+        button.danger {
+            color: var(--danger);
+            background: #fff4f2;
+            border: 1px solid #ffd4cc;
+        }
+
+        button.danger:hover { background: #ffe9e4; }
+
+        @media (max-width: 620px) {
+            .head,
+            .actions {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .details { grid-template-columns: 1fr; }
+            button, .button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="panel">
+            <div class="head">
+                <div>
+                    <h1>Read Loan #{{ loan.id }}</h1>
+                    <p class="hint">Full loan details for review before update or delete.</p>
+                </div>
+                <a class="button subtle" href="{{ url_for('dashboard') }}">Back</a>
+            </div>
+            <div class="body">
+                <div class="details">
+                    <div class="detail">
+                        <div class="label">Client Name</div>
+                        <div class="value">{{ loan.client_name }}</div>
+                    </div>
+                    <div class="detail">
+                        <div class="label">Phone</div>
+                        <div class="value">{{ loan.phone }}</div>
+                    </div>
+                    <div class="detail">
+                        <div class="label">Loan Amount</div>
+                        <div class="value">R{{ loan.loan_amount|money }}</div>
+                    </div>
+                    <div class="detail">
+                        <div class="label">Interest</div>
+                        <div class="value">R{{ loan.interest|money }}</div>
+                    </div>
+                    <div class="detail">
+                        <div class="label">Repayment</div>
+                        <div class="value">R{{ loan.repayment|money }}</div>
+                    </div>
+                    <div class="detail">
+                        <div class="label">Created</div>
+                        <div class="value">{{ loan.loan_date|short_date }}</div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <a class="button" href="{{ url_for('edit', loan_id=loan.id) }}">Update / Edit</a>
+                    <form method="POST" action="{{ url_for('delete', loan_id=loan.id) }}" onsubmit="return confirm('Delete loan #{{ loan.id }} for {{ loan.client_name }}? This cannot be undone.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="danger" type="submit">Delete</button>
+                    </form>
+                    <a class="button subtle" href="{{ url_for('dashboard') }}">Back to Loans</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
