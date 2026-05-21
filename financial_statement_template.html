@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sole Proprietorship Financial Statements</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #607080;
+      --line: #d7dee7;
+      --panel: #f7f9fb;
+      --paper: #ffffff;
+      --accent: #1f6f78;
+      --accent-2: #8a5a21;
+      --good: #1f7a4d;
+      --bad: #b42318;
+      --shadow: 0 12px 30px rgba(23, 34, 45, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef2f5;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.35;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+    }
+
+    aside {
+      background: #18232f;
+      color: #eef6f7;
+      padding: 24px;
+      overflow: auto;
+      max-height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+
+    main {
+      padding: 28px;
+      overflow: auto;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 24px;
+      line-height: 1.15;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    h3 {
+      font-size: 14px;
+      margin: 22px 0 8px;
+      text-transform: uppercase;
+      color: #415161;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    aside .subtle {
+      color: #b8c7d2;
+    }
+
+    .period-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: #d5e2e8;
+      text-transform: uppercase;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid #394b5b;
+      border-radius: 6px;
+      background: #101923;
+      color: #fff;
+      padding: 9px 10px;
+      min-height: 38px;
+    }
+
+    input[type="number"] {
+      text-align: right;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 18px 0 22px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      min-height: 38px;
+      padding: 8px 10px;
+      cursor: pointer;
+      background: #ecf1f4;
+      color: #18232f;
+      font-weight: 700;
+    }
+
+    button.primary {
+      background: #e3b65d;
+      color: #17212c;
+    }
+
+    .input-section {
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 132px;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 13px;
+      color: #edf5f7;
+    }
+
+    .input-row span {
+      min-width: 0;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .metric {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .metric .value {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .metric .value.good {
+      color: var(--good);
+    }
+
+    .metric .value.bad {
+      color: var(--bad);
+    }
+
+    .statement {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .statement-title {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .statement-title .entity {
+      font-size: 19px;
+      font-weight: 800;
+    }
+
+    .statement-title .name {
+      margin-top: 3px;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      padding: 7px 8px;
+      vertical-align: top;
+      border-bottom: 1px solid #edf1f5;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      text-align: left;
+    }
+
+    td.amount,
+    th.amount {
+      text-align: right;
+      width: 155px;
+      white-space: nowrap;
+    }
+
+    tr.section td {
+      border-bottom: 0;
+      padding-top: 16px;
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    tr.subsection td {
+      border-bottom: 0;
+      padding-top: 14px;
+      color: #485967;
+      font-weight: 800;
+    }
+
+    tr.total td {
+      font-weight: 800;
+      border-top: 1px solid var(--line);
+      border-bottom: 2px solid var(--ink);
+    }
+
+    tr.grand td {
+      font-weight: 900;
+      border-top: 2px solid var(--ink);
+      border-bottom: 3px double var(--ink);
+    }
+
+    tr.blank td {
+      height: 8px;
+      border: 0;
+      padding: 0;
+    }
+
+    .formula {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .check-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+    }
+
+    .status {
+      font-weight: 800;
+    }
+
+    .status.good {
+      color: var(--good);
+    }
+
+    .status.bad {
+      color: var(--bad);
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    @media (max-width: 1020px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        max-height: none;
+      }
+
+      .dashboard,
+      .two-column {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      main,
+      aside {
+        padding: 16px;
+      }
+
+      .input-row {
+        grid-template-columns: 1fr;
+      }
+
+      td.amount,
+      th.amount {
+        width: 112px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .app-shell {
+        display: block;
+      }
+
+      aside,
+      .dashboard,
+      .check-strip {
+        display: none;
+      }
+
+      main {
+        padding: 0;
+      }
+
+      .statement {
+        box-shadow: none;
+        border: 0;
+        border-radius: 0;
+        page-break-inside: avoid;
+        margin-bottom: 10mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside>
+      <h1>Financial Statements</h1>
+      <p class="subtle">Sole proprietorship template with editable inputs and linked statements.</p>
+
+      <div class="period-grid">
+        <label>
+          Business name
+          <input id="businessName" type="text">
+        </label>
+        <label>
+          Reporting period
+          <input id="reportingPeriod" type="text">
+        </label>
+        <label>
+          Reporting date
+          <input id="reportingDate" type="text">
+        </label>
+      </div>
+
+      <div class="toolbar">
+        <button class="primary" id="printButton" type="button">Print</button>
+        <button id="saveButton" type="button">Save</button>
+        <button id="downloadButton" type="button">Export JSON</button>
+        <button id="resetButton" type="button">Reset</button>
+      </div>
+
+      <div id="inputs"></div>
+    </aside>
+
+    <main>
+      <section class="dashboard" aria-label="Summary">
+        <div class="metric">
+          <div class="label">Sales</div>
+          <div class="value" data-out="netSales"></div>
+        </div>
+        <div class="metric">
+          <div class="label">Gross profit</div>
+          <div class="value" data-out="grossProfit"></div>
+        </div>
+        <div class="metric">
+          <div class="label">Profit for the year</div>
+          <div class="value" data-out="profitForYear"></div>
+        </div>
+        <div class="metric">
+          <div class="label">Total assets</div>
+          <div class="value" data-out="totalAssets"></div>
+        </div>
+      </section>
+
+      <section class="check-strip">
+        <div>
+          <strong>Balance check</strong>
+          <span class="subtle">Assets less equity and liabilities</span>
+        </div>
+        <div class="status" id="balanceStatus"></div>
+      </section>
+
+      <section class="statement" id="profitLossStatement">
+        <div class="statement-title">
+          <div class="entity" data-text="businessName"></div>
+          <div class="name">Statement of Profit or Loss and Other Comprehensive Income</div>
+          <div class="subtle" data-text="reportingPeriod"></div>
+        </div>
+        <table>
+          <tbody id="profitLossBody"></tbody>
+        </table>
+      </section>
+
+      <section class="statement" id="financialPositionStatement">
+        <div class="statement-title">
+          <div class="entity" data-text="businessName"></div>
+          <div class="name">Statement of Financial Position</div>
+          <div class="subtle">as at <span data-text="reportingDate"></span></div>
+        </div>
+        <table>
+          <tbody id="financialPositionBody"></tbody>
+        </table>
+      </section>
+
+      <section class="statement" id="notesStatement">
+        <div class="statement-title">
+          <div class="entity" data-text="businessName"></div>
+          <div class="name">Notes to the Financial Statements</div>
+          <div class="subtle">as at <span data-text="reportingDate"></span></div>
+        </div>
+        <div class="two-column" id="notesBody"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const initialModel = {
+      meta: {
+        businessName: "Tuscany Dealers",
+        reportingPeriod: "for the year ended 28 February 20.8",
+        reportingDate: "28 February 20.8"
+      },
+      values: {
+        grossSales: 848000,
+        salesReturns: 16000,
+        purchasesCost: 520000,
+        carriageOnPurchases: 2500,
+        rentIncomeReceived: 45500,
+        rentIncomeInAdvance: 3500,
+        insurancePaid: 14700,
+        prepaidInsurance: 2100,
+        wagesAndSalaries: 125680,
+        telephonePaid: 17750,
+        accruedTelephone: 3420,
+        officeConsumablesPurchased: 3000,
+        officeConsumablesOnHand: 1000,
+        advertising: 9200,
+        generalExpenses: 8880,
+        depreciation: 12000,
+        tradeReceivables: 47730,
+        allowanceRate: 0.10,
+        interestReceived: 6000,
+        accruedInterest: 500,
+        mortgageInterest: 72130,
+        ppeOpeningCarryingValue: 540000,
+        ppeAdditions: 60000,
+        ppeDisposalsCarryingValue: 0,
+        ppeCost: 600000,
+        fixedDeposit: 50000,
+        tradingInventory: 67500,
+        bank: 15200,
+        openingCapital: 163270,
+        additionalCapital: 0,
+        drawings: 42000,
+        mortgageLoan: 482400,
+        tradePayables: 67100
+      }
+    };
+
+    const inputGroups = [
+      {
+        title: "Revenue and Cost of Sales",
+        fields: [
+          ["grossSales", "Sales before returns"],
+          ["salesReturns", "Sales returns"],
+          ["purchasesCost", "Cost of sales before adjustment"],
+          ["carriageOnPurchases", "Cost of sales adjustment"]
+        ]
+      },
+      {
+        title: "Other Income",
+        fields: [
+          ["rentIncomeReceived", "Rent income received"],
+          ["rentIncomeInAdvance", "Rent income received in advance"],
+          ["interestReceived", "Interest received"],
+          ["accruedInterest", "Accrued interest income"]
+        ]
+      },
+      {
+        title: "Operating Expenses",
+        fields: [
+          ["insurancePaid", "Insurance paid"],
+          ["prepaidInsurance", "Prepaid insurance"],
+          ["wagesAndSalaries", "Wages and salaries"],
+          ["telephonePaid", "Telephone paid"],
+          ["accruedTelephone", "Accrued telephone"],
+          ["officeConsumablesPurchased", "Office consumables purchased"],
+          ["officeConsumablesOnHand", "Office consumables on hand"],
+          ["advertising", "Advertising"],
+          ["generalExpenses", "General expenses"],
+          ["depreciation", "Depreciation"]
+        ]
+      },
+      {
+        title: "Assets",
+        fields: [
+          ["ppeOpeningCarryingValue", "PPE opening carrying value"],
+          ["ppeAdditions", "PPE additions at cost"],
+          ["ppeDisposalsCarryingValue", "PPE disposals at carrying value"],
+          ["ppeCost", "PPE cost"],
+          ["fixedDeposit", "Fixed deposit"],
+          ["tradingInventory", "Trading inventory"],
+          ["tradeReceivables", "Trade receivables"],
+          ["allowanceRate", "Allowance for credit losses rate"],
+          ["bank", "Bank"]
+        ]
+      },
+      {
+        title: "Equity and Liabilities",
+        fields: [
+          ["openingCapital", "Capital balance at start"],
+          ["additionalCapital", "Additional capital contributed"],
+          ["drawings", "Drawings"],
+          ["mortgageLoan", "Mortgage loan"],
+          ["mortgageInterest", "Mortgage loan interest"],
+          ["tradePayables", "Trade payables"]
+        ]
+      }
+    ];
+
+    let model = loadModel();
+
+    const moneyFormatter = new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+      maximumFractionDigits: 0
+    });
+
+    const percentFormatter = new Intl.NumberFormat("en-ZA", {
+      style: "percent",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    function loadModel() {
+      const saved = localStorage.getItem("solePropFinancialStatement");
+      if (!saved) return structuredClone(initialModel);
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          meta: { ...initialModel.meta, ...parsed.meta },
+          values: { ...initialModel.values, ...parsed.values }
+        };
+      } catch {
+        return structuredClone(initialModel);
+      }
+    }
+
+    function saveModel() {
+      localStorage.setItem("solePropFinancialStatement", JSON.stringify(model, null, 2));
+    }
+
+    function formatMoney(value) {
+      const rounded = Math.round(value || 0);
+      return rounded < 0
+        ? `(${moneyFormatter.format(Math.abs(rounded))})`
+        : moneyFormatter.format(rounded);
+    }
+
+    function formatInputValue(key, value) {
+      return key === "allowanceRate" ? value : Math.round(value);
+    }
+
+    function calculate(values) {
+      const netSales = values.grossSales - values.salesReturns;
+      const costOfSales = values.purchasesCost + values.carriageOnPurchases;
+      const grossProfit = netSales - costOfSales;
+      const rentIncome = values.rentIncomeReceived - values.rentIncomeInAdvance;
+      const grossOperatingIncome = grossProfit + rentIncome;
+      const insurance = values.insurancePaid - values.prepaidInsurance;
+      const telephone = values.telephonePaid + values.accruedTelephone;
+      const officeConsumables = values.officeConsumablesPurchased - values.officeConsumablesOnHand;
+      const allowanceForCreditLosses = Math.round(values.tradeReceivables * values.allowanceRate);
+      const totalOperatingExpenses = insurance + values.wagesAndSalaries + telephone + officeConsumables +
+        values.advertising + values.generalExpenses + values.depreciation + allowanceForCreditLosses;
+      const operatingProfit = grossOperatingIncome - totalOperatingExpenses;
+      const interestIncome = values.interestReceived + values.accruedInterest;
+      const profitBeforeInterestExpense = operatingProfit + interestIncome;
+      const profitForYear = profitBeforeInterestExpense - values.mortgageInterest;
+
+      const ppeClosingCarryingValue = values.ppeOpeningCarryingValue + values.ppeAdditions -
+        values.ppeDisposalsCarryingValue - values.depreciation;
+      const accumulatedDepreciation = values.ppeCost - ppeClosingCarryingValue;
+      const totalNonCurrentAssets = ppeClosingCarryingValue + values.fixedDeposit;
+      const inventories = values.tradingInventory + values.officeConsumablesOnHand;
+      const netTradeReceivables = values.tradeReceivables - allowanceForCreditLosses;
+      const tradeAndOtherReceivables = netTradeReceivables + values.accruedInterest + values.prepaidInsurance;
+      const totalCurrentAssets = inventories + tradeAndOtherReceivables + values.bank;
+      const totalAssets = totalNonCurrentAssets + totalCurrentAssets;
+      const ownerEquity = values.openingCapital + values.additionalCapital + profitForYear - values.drawings;
+      const tradeAndOtherPayables = values.tradePayables + values.accruedTelephone + values.rentIncomeInAdvance;
+      const totalEquityAndLiabilities = ownerEquity + values.mortgageLoan + tradeAndOtherPayables;
+      const balanceDifference = totalAssets - totalEquityAndLiabilities;
+
+      return {
+        netSales,
+        costOfSales,
+        grossProfit,
+        rentIncome,
+        grossOperatingIncome,
+        insurance,
+        telephone,
+        officeConsumables,
+        allowanceForCreditLosses,
+        totalOperatingExpenses,
+        operatingProfit,
+        interestIncome,
+        profitBeforeInterestExpense,
+        profitForYear,
+        ppeClosingCarryingValue,
+        accumulatedDepreciation,
+        totalNonCurrentAssets,
+        inventories,
+        netTradeReceivables,
+        tradeAndOtherReceivables,
+        totalCurrentAssets,
+        totalAssets,
+        ownerEquity,
+        tradeAndOtherPayables,
+        totalEquityAndLiabilities,
+        balanceDifference
+      };
+    }
+
+    function buildInputs() {
+      document.getElementById("businessName").value = model.meta.businessName;
+      document.getElementById("reportingPeriod").value = model.meta.reportingPeriod;
+      document.getElementById("reportingDate").value = model.meta.reportingDate;
+
+      const root = document.getElementById("inputs");
+      root.innerHTML = "";
+      inputGroups.forEach(group => {
+        const section = document.createElement("section");
+        section.className = "input-section";
+        section.innerHTML = `<h3>${group.title}</h3>`;
+        group.fields.forEach(([key, labelText]) => {
+          const row = document.createElement("div");
+          row.className = "input-row";
+          const step = key === "allowanceRate" ? "0.01" : "1";
+          row.innerHTML = `
+            <span>${labelText}</span>
+            <input type="number" step="${step}" data-input="${key}" value="${formatInputValue(key, model.values[key])}">
+          `;
+          section.appendChild(row);
+        });
+        root.appendChild(section);
+      });
+    }
+
+    function row(label, amount, options = {}) {
+      const className = options.className || "";
+      const formula = options.formula ? `<div class="formula">${options.formula}</div>` : "";
+      const amountText = options.blank ? "" : formatMoney(amount);
+      return `<tr class="${className}"><td>${label}${formula}</td><td class="amount">${amountText}</td></tr>`;
+    }
+
+    function sectionRow(label, className = "section") {
+      return `<tr class="${className}"><td colspan="2">${label}</td></tr>`;
+    }
+
+    function blankRow() {
+      return `<tr class="blank"><td colspan="2"></td></tr>`;
+    }
+
+    function renderProfitLoss(c) {
+      document.getElementById("profitLossBody").innerHTML = [
+        row("Sales", c.netSales, { formula: `(${formatMoney(model.values.grossSales)} - ${formatMoney(model.values.salesReturns)})` }),
+        row("Less: Cost of sales", -c.costOfSales, { formula: `(${formatMoney(model.values.purchasesCost)} + ${formatMoney(model.values.carriageOnPurchases)})` }),
+        row("Gross profit", c.grossProfit, { className: "total" }),
+        blankRow(),
+        sectionRow("Add: Other operating income"),
+        row("Rent income", c.rentIncome, { formula: `(${formatMoney(model.values.rentIncomeReceived)} - ${formatMoney(model.values.rentIncomeInAdvance)})` }),
+        row("Gross operating income", c.grossOperatingIncome, { className: "total" }),
+        blankRow(),
+        sectionRow("Less: Operating expenses"),
+        row("Insurance", -c.insurance, { formula: `(${formatMoney(model.values.insurancePaid)} - ${formatMoney(model.values.prepaidInsurance)})` }),
+        row("Wages and salaries", -model.values.wagesAndSalaries),
+        row("Telephone", -c.telephone, { formula: `(${formatMoney(model.values.telephonePaid)} + ${formatMoney(model.values.accruedTelephone)})` }),
+        row("Office consumables", -c.officeConsumables, { formula: `(${formatMoney(model.values.officeConsumablesPurchased)} - ${formatMoney(model.values.officeConsumablesOnHand)})` }),
+        row("Advertising", -model.values.advertising),
+        row("General expenses", -model.values.generalExpenses),
+        row("Depreciation", -model.values.depreciation),
+        row("Allowance for credit losses adjustment", -c.allowanceForCreditLosses),
+        row("Total operating expenses", -c.totalOperatingExpenses, { className: "total" }),
+        row("Operating profit", c.operatingProfit, { className: "total" }),
+        blankRow(),
+        row("Add: Interest income", c.interestIncome),
+        row("Profit before interest expense", c.profitBeforeInterestExpense, { className: "total" }),
+        row("Less: Interest expense", -model.values.mortgageInterest),
+        row("Profit for the year", c.profitForYear, { className: "grand" })
+      ].join("");
+    }
+
+    function renderFinancialPosition(c) {
+      document.getElementById("financialPositionBody").innerHTML = [
+        sectionRow("Assets"),
+        sectionRow("Non-current assets", "subsection"),
+        row("Property, plant and equipment", c.ppeClosingCarryingValue),
+        row("Available-for-sale financial assets", model.values.fixedDeposit),
+        row("Total non-current assets", c.totalNonCurrentAssets, { className: "total" }),
+        blankRow(),
+        sectionRow("Current assets", "subsection"),
+        row("Inventories", c.inventories),
+        row("Trade and other receivables", c.tradeAndOtherReceivables),
+        row("Cash and cash equivalents", model.values.bank),
+        row("Total current assets", c.totalCurrentAssets, { className: "total" }),
+        row("Total assets", c.totalAssets, { className: "grand" }),
+        blankRow(),
+        sectionRow("Equity and liabilities"),
+        sectionRow("Owner's equity", "subsection"),
+        row("Owner's equity", c.ownerEquity),
+        blankRow(),
+        sectionRow("Non-current liabilities", "subsection"),
+        row("Long-term borrowings", model.values.mortgageLoan),
+        blankRow(),
+        sectionRow("Current liabilities", "subsection"),
+        row("Trade and other payables", c.tradeAndOtherPayables),
+        row("Total equity and liabilities", c.totalEquityAndLiabilities, { className: "grand" })
+      ].join("");
+    }
+
+    function note(title, rows) {
+      return `
+        <section>
+          <h3>${title}</h3>
+          <table><tbody>${rows.join("")}</tbody></table>
+        </section>
+      `;
+    }
+
+    function renderNotes(c) {
+      document.getElementById("notesBody").innerHTML = [
+        note("1. Interest income", [
+          row("Interest on fixed deposit", c.interestIncome, { formula: `(${formatMoney(model.values.interestReceived)} + ${formatMoney(model.values.accruedInterest)})` })
+        ]),
+        note("2. Interest expenses", [
+          row("Interest on mortgage loan", model.values.mortgageInterest)
+        ]),
+        note("3. Property, plant and equipment", [
+          row("Carrying value at the end of the previous year", model.values.ppeOpeningCarryingValue),
+          row("Additions at cost", model.values.ppeAdditions),
+          row("Disposals at carrying value", -model.values.ppeDisposalsCarryingValue),
+          row("Depreciation for the year", -model.values.depreciation),
+          row("Carrying value at the end of the current year", c.ppeClosingCarryingValue, { className: "total" }),
+          row("Cost", model.values.ppeCost),
+          row("Accumulated depreciation", -c.accumulatedDepreciation)
+        ]),
+        note("4. Available-for-sale financial assets", [
+          row("Fixed deposit: ABOO Bank", model.values.fixedDeposit)
+        ]),
+        note("5. Inventories", [
+          row("Trading inventories", model.values.tradingInventory),
+          row("Consumable stores on hand: Office consumables", model.values.officeConsumablesOnHand),
+          row("Total inventories", c.inventories, { className: "total" })
+        ]),
+        note("6. Trade and other receivables", [
+          row("Trade receivables", model.values.tradeReceivables),
+          row("Less: Allowance for credit losses", -c.allowanceForCreditLosses, { formula: `${percentFormatter.format(model.values.allowanceRate)} of trade receivables` }),
+          row("Net trade receivables", c.netTradeReceivables, { className: "total" }),
+          row("Accrued income: Interest on fixed deposit", model.values.accruedInterest),
+          row("Prepaid expenses: Insurance", model.values.prepaidInsurance),
+          row("Total trade and other receivables", c.tradeAndOtherReceivables, { className: "grand" })
+        ]),
+        note("7. Cash and cash equivalents", [
+          row("Bank", model.values.bank)
+        ]),
+        note("8. Owner's equity", [
+          row("Capital balance on 1 March 20.7", model.values.openingCapital),
+          row("Additional capital contributed", model.values.additionalCapital),
+          row("Add: Net profit for the period", c.profitForYear),
+          row("Less: Drawings", -model.values.drawings),
+          row("Closing owner's equity", c.ownerEquity, { className: "grand" })
+        ]),
+        note("9. Long-term borrowings", [
+          row("Mortgage loan: BZN Bank", model.values.mortgageLoan)
+        ]),
+        note("10. Trade and other payables", [
+          row("Trade payables", model.values.tradePayables),
+          row("Accrued expenses: Telephone", model.values.accruedTelephone),
+          row("Income received in advance: Rent income", model.values.rentIncomeInAdvance),
+          row("Total trade and other payables", c.tradeAndOtherPayables, { className: "grand" })
+        ])
+      ].join("");
+    }
+
+    function render() {
+      const c = calculate(model.values);
+      document.querySelectorAll("[data-text]").forEach(node => {
+        node.textContent = model.meta[node.dataset.text] || "";
+      });
+      document.querySelectorAll("[data-out]").forEach(node => {
+        const key = node.dataset.out;
+        node.textContent = formatMoney(c[key]);
+        node.classList.toggle("good", c[key] >= 0);
+        node.classList.toggle("bad", c[key] < 0);
+      });
+
+      renderProfitLoss(c);
+      renderFinancialPosition(c);
+      renderNotes(c);
+
+      const status = document.getElementById("balanceStatus");
+      const balanced = Math.round(c.balanceDifference) === 0;
+      status.textContent = balanced ? "Balanced" : `Out by ${formatMoney(c.balanceDifference)}`;
+      status.className = `status ${balanced ? "good" : "bad"}`;
+    }
+
+    function bindEvents() {
+      document.getElementById("inputs").addEventListener("input", event => {
+        const key = event.target.dataset.input;
+        if (!key) return;
+        model.values[key] = Number(event.target.value || 0);
+        render();
+      });
+
+      ["businessName", "reportingPeriod", "reportingDate"].forEach(key => {
+        document.getElementById(key).addEventListener("input", event => {
+          model.meta[key] = event.target.value;
+          render();
+        });
+      });
+
+      document.getElementById("saveButton").addEventListener("click", () => {
+        saveModel();
+      });
+
+      document.getElementById("printButton").addEventListener("click", () => {
+        window.print();
+      });
+
+      document.getElementById("resetButton").addEventListener("click", () => {
+        model = structuredClone(initialModel);
+        localStorage.removeItem("solePropFinancialStatement");
+        buildInputs();
+        bindInputFocus();
+        render();
+      });
+
+      document.getElementById("downloadButton").addEventListener("click", () => {
+        const blob = new Blob([JSON.stringify(model, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${model.meta.businessName.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}_financial_statement_inputs.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function bindInputFocus() {
+      document.querySelectorAll("input[type='number']").forEach(input => {
+        input.addEventListener("focus", event => event.target.select());
+      });
+    }
+
+    buildInputs();
+    bindEvents();
+    bindInputFocus();
+    render();
+  </script>
+</body>
+</html>
