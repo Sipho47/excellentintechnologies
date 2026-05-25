@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            input:first-child {
+                background-color: red;
+            }
+            
+            input:hover {
+                background-color: yellow;
+            }
+            
+            input:focus {
+                background-color: green;
+            }
+            
+            input:disabled {
+                border-width: 5px;
+            }
+            
+            input:checked {
+                height: 50px;
+                width: 50px;
+            }
+            
+            p:not(#second) {
+                color: red;
+            }
+        </style>
+    </head>
+    <body>
+        <input type="text" />
+        <input type="text" />
+        <input type="text" />
+        <input type="text" disabled />
+        <input type="text" />
+        
+        <p id="first">first</p>
+        <p id="second">second</p>
+        <p id="third">third</p>
+    </body>
+</html>

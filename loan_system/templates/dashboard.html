@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Loan System</title>
+    <style>
+        :root {
+            --ink: #17202a;
+            --muted: #687385;
+            --line: #dfe5ec;
+            --brand: #176c5f;
+            --brand-dark: #0f4f46;
+            --paper: #ffffff;
+            --wash: #f4f7f9;
+            --danger: #b42318;
+            --success: #147a4f;
+            --warning: #9a6700;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--wash);
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        header {
+            background: #ffffff;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .bar,
+        main {
+            width: min(1180px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        .bar {
+            min-height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        h1, h2, h3, p { margin: 0; }
+
+        h1 {
+            font-size: 28px;
+            letter-spacing: 0;
+        }
+
+        h2 {
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+
+        h3 {
+            font-size: 15px;
+            letter-spacing: 0;
+        }
+
+        main { padding: 24px 0 42px; }
+
+        button,
+        .button {
+            min-height: 40px;
+            border: 0;
+            border-radius: 6px;
+            padding: 0 14px;
+            color: #fff;
+            background: var(--brand);
+            font: inherit;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        button:hover,
+        .button:hover { background: var(--brand-dark); }
+
+        button.subtle,
+        .button.subtle {
+            color: var(--ink);
+            background: #eef3f5;
+            border: 1px solid var(--line);
+        }
+
+        button.subtle:hover,
+        .button.subtle:hover { background: #e1e9ed; }
+
+        button.danger {
+            color: var(--danger);
+            background: #fff4f2;
+            border: 1px solid #ffd4cc;
+        }
+
+        button.danger:hover { background: #ffe9e4; }
+
+        .flash {
+            margin-bottom: 16px;
+            border-radius: 6px;
+            border: 1px solid var(--line);
+            padding: 12px 14px;
+            background: #fff;
+        }
+
+        .flash.success {
+            color: var(--success);
+            background: #effaf4;
+            border-color: #c7ebd6;
+        }
+
+        .flash.danger {
+            color: var(--danger);
+            background: #fff4f2;
+            border-color: #ffd4cc;
+        }
+
+        .flash.warning {
+            color: var(--warning);
+            background: #fff8e6;
+            border-color: #f7df99;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .stat,
+        .panel,
+        .form-preview {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        .stat { padding: 18px; }
+
+        .label {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .value {
+            margin-top: 8px;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 340px minmax(0, 1fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .panel { overflow: hidden; }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .panel-body { padding: 18px; }
+
+        .crud-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .crud-step {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+        .crud-step strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .field { margin-bottom: 14px; }
+
+        label {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input {
+            width: 100%;
+            min-height: 42px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 0 12px;
+            color: var(--ink);
+            background: #fff;
+            font: inherit;
+        }
+
+        input:focus {
+            border-color: var(--brand);
+            outline: 3px solid rgba(23, 108, 95, 0.15);
+        }
+
+        .table-input {
+            min-width: 120px;
+            min-height: 36px;
+            padding: 0 10px;
+            font-size: 14px;
+        }
+
+        .table-input.name { min-width: 170px; }
+        .table-input.phone { min-width: 135px; }
+        .table-input.amount { min-width: 105px; }
+
+        .hint {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .form-preview {
+            margin: 4px 0 16px;
+            padding: 12px;
+            background: #f9fbfc;
+        }
+
+        .preview-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 5px 0;
+            font-size: 14px;
+        }
+
+        .preview-row strong { font-size: 15px; }
+
+        .search {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .search input { width: min(280px, 48vw); }
+
+        .table-meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            background: #f9fbfc;
+        }
+
+        .client {
+            white-space: normal;
+            min-width: 150px;
+            font-weight: 700;
+        }
+
+        .phone {
+            display: block;
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .money-strong { font-weight: 800; }
+
+        .loan-list {
+            display: grid;
+            gap: 14px;
+            padding: 16px;
+        }
+
+        .loan-card {
+            display: grid;
+            gap: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 16px;
+            background: #fff;
+        }
+
+        .loan-card-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .loan-edit-form {
+            display: grid;
+            gap: 12px;
+        }
+
+        .edit-grid {
+            display: grid;
+            grid-template-columns: minmax(170px, 1.4fr) minmax(150px, 1fr) minmax(130px, 0.8fr);
+            gap: 12px;
+            align-items: end;
+        }
+
+        .loan-totals {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .loan-totals span {
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #f9fbfc;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .empty {
+            padding: 38px 18px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-top: 1px solid var(--line);
+            background: #fff;
+        }
+
+        .pagination-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        @media (max-width: 920px) {
+            .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .crud-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .layout { grid-template-columns: 1fr; }
+            .edit-grid { grid-template-columns: 1fr; }
+            .table-wrap { overflow-x: auto; }
+        }
+
+        @media (max-width: 620px) {
+            .bar {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 18px 0;
+            }
+
+            .stats { grid-template-columns: 1fr; }
+            .crud-strip { grid-template-columns: 1fr; }
+            .panel-head,
+            .pagination {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .search { width: 100%; }
+            .search input { width: 100%; }
+            button, .button { width: 100%; }
+            .loan-card-head { flex-direction: column; }
+            .actions { align-items: stretch; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="bar">
+            <div>
+                <h1>Loan Dashboard</h1>
+                <p class="hint">Signed in as {{ session.admin }}</p>
+            </div>
+            <form method="POST" action="{{ url_for('logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="subtle" type="submit">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <section class="stats" aria-label="Portfolio summary">
+            <div class="stat">
+                <div class="label">Available Capital</div>
+                <div class="value">R{{ totals.available_capital|money }}</div>
+            </div>
+            <div class="stat">
+                <div class="label">Expected Repayments</div>
+                <div class="value">R{{ totals.expected_repayments|money }}</div>
+            </div>
+            <div class="stat">
+                <div class="label">Projected Profit</div>
+                <div class="value">R{{ totals.projected_profit|money }}</div>
+            </div>
+            <div class="stat">
+                <div class="label">Total Loans</div>
+                <div class="value">{{ totals.loan_count }}</div>
+            </div>
+        </section>
+
+        <section class="crud-strip" aria-label="CRUD workflow">
+            <div class="crud-step">
+                <strong>Create</strong>
+                <p class="hint">Add a new client loan using the form.</p>
+            </div>
+            <div class="crud-step">
+                <strong>Read</strong>
+                <p class="hint">View full details with the Read button.</p>
+            </div>
+            <div class="crud-step">
+                <strong>Update / Edit</strong>
+                <p class="hint">Edit each loan card directly, then click Update.</p>
+            </div>
+            <div class="crud-step">
+                <strong>Delete</strong>
+                <p class="hint">Remove a loan after confirmation.</p>
+            </div>
+        </section>
+
+        <div class="layout">
+            <section class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>Add Loan</h2>
+                        <p class="hint">Enter the client details and review repayment before saving.</p>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <form method="POST" action="{{ url_for('dashboard') }}" id="loan-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="field">
+                            <label for="name">Client Name</label>
+                            <input id="name" name="name" value="{{ form_data.get('name', '') }}" placeholder="Example: Nandi Dlamini" autocomplete="name" required>
+                        </div>
+                        <div class="field">
+                            <label for="phone">Telephone Number</label>
+                            <input id="phone" name="phone" value="{{ form_data.get('phone', '') }}" placeholder="Example: 071 234 5678" inputmode="tel" autocomplete="tel" required>
+                        </div>
+                        <div class="field">
+                            <label for="loan">Loan Amount</label>
+                            <input id="loan" name="loan" value="{{ form_data.get('loan', '') }}" placeholder="0.00" inputmode="decimal" required>
+                        </div>
+
+                        <div class="form-preview" aria-live="polite">
+                            <div class="preview-row">
+                                <span>Interest</span>
+                                <strong id="preview-interest">R0.00</strong>
+                            </div>
+                            <div class="preview-row">
+                                <span>Total repayment</span>
+                                <strong id="preview-repayment">R0.00</strong>
+                            </div>
+                        </div>
+
+                        <button type="submit">Create Loan</button>
+                    </form>
+                    <p class="hint" style="margin-top: 14px;">
+                        Interest is calculated at {{ (interest_rate * 100)|round|int }}%.
+                    </p>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>Loans</h2>
+                        <p class="table-meta">
+                            Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
+                        </p>
+                    </div>
+                    <form class="search" method="GET" action="{{ url_for('dashboard') }}">
+                        <input name="q" value="{{ search }}" placeholder="Search client or phone">
+                        <button class="subtle" type="submit">Search</button>
+                        {% if search %}
+                            <a class="button subtle" href="{{ url_for('dashboard') }}">Clear</a>
+                        {% endif %}
+                    </form>
+                </div>
+
+                {% if loans %}
+                    <div class="loan-list">
+                        {% for loan in loans %}
+                            <article class="loan-card">
+                                <div class="loan-card-head">
+                                    <div>
+                                        <h3>Loan #{{ loan.id }}</h3>
+                                        <p class="hint">Created {{ loan.loan_date|short_date }}</p>
+                                    </div>
+                                    <a class="button subtle" href="{{ url_for('view_loan', loan_id=loan.id) }}">Read</a>
+                                </div>
+
+                                <form id="update-loan-{{ loan.id }}" class="loan-edit-form" method="POST" action="{{ url_for('edit', loan_id=loan.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <div class="edit-grid">
+                                        <div class="field">
+                                            <label for="name-{{ loan.id }}">Client Name</label>
+                                            <input id="name-{{ loan.id }}" name="name" value="{{ loan.client_name }}" required>
+                                        </div>
+                                        <div class="field">
+                                            <label for="phone-{{ loan.id }}">Telephone Number</label>
+                                            <input id="phone-{{ loan.id }}" name="phone" value="{{ loan.phone }}" inputmode="tel" required>
+                                        </div>
+                                        <div class="field">
+                                            <label for="loan-{{ loan.id }}">Loan Amount</label>
+                                            <input id="loan-{{ loan.id }}" name="loan" value="{{ loan.loan_amount }}" inputmode="decimal" required>
+                                        </div>
+                                    </div>
+                                    <div class="loan-totals">
+                                        <span>Interest: <strong>R{{ loan.interest|money }}</strong></span>
+                                        <span>Repayment: <strong>R{{ loan.repayment|money }}</strong></span>
+                                    </div>
+                                    <div class="actions">
+                                        <button type="submit">Update</button>
+                                        <a class="button subtle" href="{{ url_for('edit', loan_id=loan.id) }}">Edit Page</a>
+                                    </div>
+                                </form>
+
+                                <form method="POST" action="{{ url_for('delete', loan_id=loan.id) }}" onsubmit="return confirm('Delete loan #{{ loan.id }} for {{ loan.client_name }}? This cannot be undone.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="danger" type="submit">Delete</button>
+                                </form>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    <div class="pagination">
+                        <span class="table-meta">Page {{ pagination.page }} of {{ pagination.total_pages }}</span>
+                        <div class="pagination-actions">
+                            {% if pagination.has_prev %}
+                                <a class="button subtle" href="{{ url_for('dashboard', q=search, page=pagination.prev_page) }}">Previous</a>
+                            {% endif %}
+                            {% if pagination.has_next %}
+                                <a class="button subtle" href="{{ url_for('dashboard', q=search, page=pagination.next_page) }}">Next</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="empty">
+                        <h3>No loans found</h3>
+                        <p class="hint" style="margin-top: 8px;">
+                            {% if search %}
+                                Try a different search term or clear the search.
+                            {% else %}
+                                Add the first loan using the form on this page.
+                            {% endif %}
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const interestRate = Number("{{ interest_rate }}");
+        const loanInput = document.getElementById("loan");
+        const interestOutput = document.getElementById("preview-interest");
+        const repaymentOutput = document.getElementById("preview-repayment");
+        const currency = new Intl.NumberFormat("en-ZA", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        function cleanAmount(value) {
+            return Number(String(value).replace(/,/g, "").trim());
+        }
+
+        function updatePreview() {
+            const amount = cleanAmount(loanInput.value);
+            if (!Number.isFinite(amount) || amount <= 0) {
+                interestOutput.textContent = "R0.00";
+                repaymentOutput.textContent = "R0.00";
+                return;
+            }
+
+            const interest = amount * interestRate;
+            interestOutput.textContent = `R${currency.format(interest)}`;
+            repaymentOutput.textContent = `R${currency.format(amount + interest)}`;
+        }
+
+        loanInput.addEventListener("input", updatePreview);
+        updatePreview();
+    </script>
+</body>
+</html>

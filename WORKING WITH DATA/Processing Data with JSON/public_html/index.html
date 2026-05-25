@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    
+    <form id="requestForm">
+        <input type="text" name="requestText">
+    </form>
+    
+    <button type="button" onclick="sendDoc()">Send</button>
+
+    <p id="demo"></p>
+
+    <script>
+        function sendDoc() {
+            var xhttp = new XMLHttpRequest();
+
+            xhttp.onreadystatechange = function() {
+                if (this.readyState === 1) {
+                    console.log("open has been called"); 
+                }
+                if (this.readyState === 2) {
+                    console.log("send has been called");
+                }
+                if (this.readyState === 3) {
+                    console.log("downloading response");
+                }
+                if (this.readyState === 4 && this.status === 200) {
+                    document.getElementById("demo").innerHTML = this.responseText;
+                }
+            };
+            
+            var formData = new FormData(document.getElementById("requestForm"));
+            xhttp.open("POST", "echo.aspx"); // Assuming you want to send the form data to "echo.aspx"
+            xhttp.send(formData);
+        }
+    </script>
+</body>
+</html>

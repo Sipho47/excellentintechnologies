@@ -1,0 +1,40 @@
+body {
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.box {
+  width: 200px;
+  height: 150px;
+  border: 2px solid #000;
+  margin: 10px;
+  padding: 10px;
+  text-align: center;
+  font-family: "Your Custom Font", Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#box3, #box4, #box5 {
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+#box3 {
+  background-image: url("background1.jpg");
+}
+
+#box4 {
+  background-image: url("background2.jpg");
+}
+
+#box5 {
+  background-image: url("background3.jpg");
+}
+

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TODO supply a title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div>TODO write content</div>
+
+    <script>
+        function SomeObject(parameter) {
+            this.propertyOne = parameter;
+            this.propertyTwo = "A second property";
+        };
+
+        SomeObject.prototype.printPropertyOne = function() {
+            console.log(this.propertyOne);
+        };
+
+        SomeObject.prototype.printPropertyTwo = function() {
+            console.log(this.propertyTwo);
+        };
+
+        var myObject = new SomeObject("Hello World");
+        console.log(myObject);
+
+        myObject.printPropertyOne();
+        myObject.printPropertyTwo();
+    </script>
+</body>
+</html>

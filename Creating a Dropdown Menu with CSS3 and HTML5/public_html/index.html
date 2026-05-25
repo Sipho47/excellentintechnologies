@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font: normal 10px Calibri;
+            width: 900px;
+            color: #6d6d6d;
+        }
+        #nav {
+            margin: 0;
+            padding: 4px 3px 0;
+            line-height: 100%;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.4);
+            background: linear-gradient(#a9a9a9,#333333);
+        }
+        #nav li {
+            margin: 0 5px;
+            padding: 0 0 8px;
+            float: left;
+            position: relative;
+            list-style: none;
+        }
+        #nav a {
+            font-weight: bold;
+            color: rgba(255,255,255,.8);
+            text-decoration: none;
+            display: block;
+            padding: 8px 20px;
+            margin: 0;
+            border-radius: 10px;
+            text-shadow: 0 1px #6d6d6d;
+        }
+        #nav .current a,
+        #nav li:hover > a {
+            background: linear-gradient(#6d6d6d,#a1a1a1);
+            color: #444;
+            border-top: solid 1px #f8f8f8;
+            box-shadow: 0 1px 1px rgba(0,0,0,.2);
+            text-shadow: 0 1px 0 rgba(255,255,255,.8);
+        }
+        #nav ul li:hover a,
+        #nav li:hover li a {
+            background: none;
+            border: none;
+            color: #666;
+        }
+        #nav ul a:hover {
+            background: #0399d4 !important;
+            background: linear-gradient(#04acec,#0186ba);
+            color: #fff !important;
+            border-radius: 0;
+            text-shadow: 0 1px 1px rgba(0,0,0,.1);
+        }
+        #nav {
+            display: inline-block;
+        }
+        #nav li:hover > ul {
+            display: block;
+        }
+        #nav ul {
+            background: #ddd;
+            background: linear-gradient(#fff,#cfcfcf);
+            display: none;
+            margin: 0;
+            padding: 0;
+            width: 185px;
+            position: absolute;
+            top: 35px;
+            left: 0;
+            border: solid 1px #b4b4b4;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
+        }
+        #nav ul li {
+            float: none;
+            margin: 0;
+            padding: 0;
+        }
+        #nav ul a {
+            font-weight: normal;
+            text-shadow: 0 1px 1px rgba(255,255,255,.9);
+        }
+        #nav ul ul {
+            left: 181px;
+            top: -3px;
+        }
+    </style>
+</head>
+<body>
+    <ul id="nav">
+        <li><a href="#">Home</a></li>
+        <li><a href="#">About</a>
+            <ul>
+               <li><a href="#">The Company</a></li>
+                <li><a href="#">The People</a>
+                    <ul>
+                        <li><a href="#">Our Employees</a></li>
+                        <li><a href="#" class="blue">Our Management</a></li>
+                    </ul>
+                </li>
+                <li><a href="#">The Board</a></li>
+                <li><a href="#">Our History</a></li>
+            </ul>
+        </li>
+        <li><a href="#">FAQ</a>
+            <ul>
+                <li><a href="#">Who are we?</a></li>
+                <li><a href="#">What services do we offer?</a>
+                    <ul>
+                        <li><a href="#">Products</a></li>
+                        <li><a href="#" class="blue">Services</a></li>
+                    </ul>
+                </li>
+                <li><a href="#">How can I learn more?</a></li>
+                <li><a href="#">Where is the events calendar?</a></li>
+            </ul>
+        </li>
+        <li><a href="#">Careers</a></li>
+        <li><a href="#">Contact Us</a></li>
+    </ul>
+</body>
+</html>

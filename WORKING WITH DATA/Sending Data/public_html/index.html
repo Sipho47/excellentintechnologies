@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TODO supply a title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<form id="requestForm">
+    <input type="text" name="requestText">
+</form>
+
+<button type="button" onclick="sendDoc()">Send</button>
+
+<p id="demo"></p>
+
+<script>
+    function sendDoc() {
+        var form = document.getElementById("requestForm");
+        var formData = new FormData(form);
+
+        // Create a new XMLHttpRequest object
+        var xhr = new XMLHttpRequest();
+
+        // Set up the request
+        xhr.open("POST", "your_server_endpoint_here", true);
+        
+        // Set the appropriate headers for form data
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+
+        // Set the event handler to handle the response
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (xhr.status === 200) {
+                    // Update the "demo" paragraph with the response from the server
+                    document.getElementById("demo").textContent = xhr.responseText;
+                } else {
+                    // Handle errors if any
+                    console.error("Request failed with status:", xhr.status);
+                }
+            }
+        };
+
+        // Convert form data to a query string
+        var encodedData = new URLSearchParams(formData).toString();
+
+        // Send the request with the encoded form data
+        xhr.send(encodedData);
+    }
+</script>
+</body>
+</html>

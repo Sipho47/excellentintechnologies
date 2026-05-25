@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        window.onload = function(e) {
+            var myArray = [   // Changed variable name to "myArray"
+                'first',
+                'second',
+                'third'
+            ];
+            
+            var text = ""; // Initialize the text variable
+            
+            for (var i = 0; i < myArray.length; i++) { // Corrected the loop variable name
+                console.log(myArray[i]);
+                text += myArray[i] + "\n";
+            }
+            
+            console.log(text);
+            
+            var i = 0; // Reset i to 0
+            
+            while (i < 10) {
+                text += "The number is " + i + "\n";
+                i++;
+            }
+            
+            console.log(text);
+        };
+    </script>
+</head>
+<body>
+    <p>Some blurb. Fusce congue faucibus gravida. Proin</p>
+</body>
+</html>

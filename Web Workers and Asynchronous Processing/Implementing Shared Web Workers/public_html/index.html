@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body>
+    <p>Time: <output id="result2">0</output> seconds</p>
+    <input type="number" id="secondsInput2" placeholder="Enter seconds" />
+    <button onclick="startWorker2()">Start Worker2</button>
+    <button onclick="sendMessage2()">Send Message2</button>
+    <button onclick="stopWorker2()">Stop Worker2</button>
+
+    <script>
+        var w2;
+        var timer; // For counting the time
+
+        function startWorker2() {
+            if (typeof(SharedWorker) !== "undefined") {
+                if (typeof w2 === "undefined") {
+                    // Create a shared worker using Blob
+                    var blob = new Blob([document.querySelector("#sharedWorkerCode").textContent]);
+                    var blobURL = window.URL.createObjectURL(blob);
+
+                    // Create the shared worker
+                    w2 = new SharedWorker(blobURL);
+                    w2.port.addEventListener("message", function (evt) {
+                        document.getElementById("result2").innerHTML = evt.data + " seconds";
+                    }, false);
+                    w2.port.start();
+
+                    // Start the timer to count the time
+                    timer = setInterval(function () {
+                        var currentSeconds = parseInt(document.getElementById("result2").textContent, 10);
+                        document.getElementById("result2").textContent = (currentSeconds + 1).toString();
+                    }, 1000);
+                }
+            } else {
+                alert("Sorry, your browser doesn't support Shared Web Worker");
+            }
+        }
+
+        function sendMessage2() {
+            if (w2) {
+                var inputValue = document.getElementById("secondsInput2").value;
+                if (inputValue !== "") {
+                    w2.port.postMessage(parseInt(inputValue, 10));
+                }
+            }
+        }
+
+        function stopWorker2() {
+            if (w2) {
+                clearInterval(timer); // Stop the timer
+                w2.port.postMessage("close"); // Send a message to the worker to terminate it gracefully
+                w2.port.close();
+                w2 = undefined;
+            }
+        }
+    </script>
+    <script id="sharedWorkerCode" type="javascript/worker">
+        // Shared worker script
+        self.addEventListener("connect", function (e) {
+            var port = e.ports[0];
+
+            port.addEventListener("message", function (evt) {
+                // Handle messages from the main thread
+                var data = evt.data;
+                if (typeof data === "number") {
+                    // Process the data, e.g., perform time-consuming tasks
+                    var result = data * 2;
+                    // Send the result back to the main thread
+                    port.postMessage(result);
+                } else if (data === "close") {
+                    // Close the shared worker
+                    port.close();
+                }
+            }, false);
+
+            // Notify the main thread that the worker is ready
+            port.start();
+        }, false);
+    </script>
+</body>
+</html>

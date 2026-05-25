@@ -1,0 +1,16 @@
+@font-face {
+    font-family: 'MyWebFont';
+    src: url('myfont.woff2') format('woff2'),
+         url('myfont.woff') format('woff');
+}
+
+p {
+    font-size: 20px;
+    font-weight: 700;
+    font-style: italic;
+    color: red;
+    letter-spacing: 7px;
+    text-indent: 10%;
+    hyphens: auto;
+    text-shadow: #000 1px 0 10px;
+}

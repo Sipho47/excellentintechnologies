@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        function doIt() {
+            var elem = document.forms["form1"];
+            var formData = "";
+            var isValid = true; // Flag to track form validity
+
+            // Check if the name field is empty
+            if (elem["name"].value.trim() === "") {
+                isValid = false;
+                alert("Please enter your name.");
+            }
+
+            // Check if the email field is empty or contains a valid email address
+            var email = elem["email"].value.trim();
+            if (email === "") {
+                isValid = false;
+                alert("Please enter your email address.");
+            } else if (!validateEmail(email)) {
+                isValid = false;
+                alert("Please enter a valid email address.");
+            }
+
+            // If all fields are valid, proceed with form submission
+            if (isValid) {
+                for (var i = 0; i < elem.length - 1; i++) {
+                    formData += elem[i].value + "<br>";
+                }
+                document.getElementById("output").innerHTML = formData;
+            }
+        }
+
+        // Helper function to validate email address format using regular expression
+        function validateEmail(email) {
+            var re = /\S+@\S+\.\S+/;
+            return re.test(email);
+        }
+    </script>
+</head>
+<body>
+    <form name="form1">
+        Name: <input type="text" id="name" /><br><br>
+        Address: <input type="text" id="address" /><br><br>
+        Email: <input type="text" id="email" /><br><br>
+        Phone: <input type="text" id="phone" /><br><br>
+        <input type="button" onclick="doIt()" value="GO" /><br><br>
+    </form>
+    <div id="output"></div>
+</body>
+</html>

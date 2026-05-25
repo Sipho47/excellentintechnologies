@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Loan | Loan System</title>
+    <style>
+        :root {
+            --ink: #17202a;
+            --muted: #687385;
+            --line: #dfe5ec;
+            --brand: #176c5f;
+            --brand-dark: #0f4f46;
+            --paper: #ffffff;
+            --wash: #f4f7f9;
+            --danger: #b42318;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--wash);
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(620px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 42px 0;
+        }
+
+        .panel {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .head,
+        .body { padding: 22px; }
+
+        .head {
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 0;
+        }
+
+        .hint {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .field { margin-bottom: 16px; }
+
+        label {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input {
+            width: 100%;
+            min-height: 44px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 0 12px;
+            color: var(--ink);
+            font: inherit;
+        }
+
+        input:focus {
+            border-color: var(--brand);
+            outline: 3px solid rgba(23, 108, 95, 0.15);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button,
+        .button {
+            min-height: 40px;
+            border: 0;
+            border-radius: 6px;
+            padding: 0 14px;
+            color: #fff;
+            background: var(--brand);
+            font: inherit;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover,
+        .button:hover { background: var(--brand-dark); }
+
+        .button.subtle {
+            color: var(--ink);
+            background: #eef3f5;
+            border: 1px solid var(--line);
+        }
+
+        .button.subtle:hover { background: #e1e9ed; }
+
+        .flash {
+            margin-bottom: 16px;
+            border-radius: 6px;
+            border: 1px solid #ffd4cc;
+            padding: 12px 14px;
+            color: var(--danger);
+            background: #fff4f2;
+        }
+
+        .form-preview {
+            margin: 4px 0 16px;
+            padding: 12px;
+            background: #f9fbfc;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        .preview-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 5px 0;
+            font-size: 14px;
+        }
+
+        .preview-row strong { font-size: 15px; }
+    </style>
+</head>
+<body>
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <div class="head">
+                <div>
+                    <h1>Edit Loan #{{ loan.id }}</h1>
+                    <p class="hint">Repayment is recalculated at {{ (interest_rate * 100)|round|int }}% interest.</p>
+                </div>
+                <a class="button subtle" href="{{ url_for('dashboard') }}">Back</a>
+            </div>
+            <div class="body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="field">
+                        <label for="name">Client Name</label>
+                        <input id="name" name="name" value="{{ loan.client_name }}" required>
+                    </div>
+                    <div class="field">
+                        <label for="phone">Telephone Number</label>
+                        <input id="phone" name="phone" value="{{ loan.phone }}" inputmode="tel" required>
+                    </div>
+                    <div class="field">
+                        <label for="loan">Loan Amount</label>
+                        <input id="loan" name="loan" value="{{ loan.loan_amount }}" inputmode="decimal" required>
+                    </div>
+                    <div class="form-preview" aria-live="polite">
+                        <div class="preview-row">
+                            <span>Interest</span>
+                            <strong id="preview-interest">R0.00</strong>
+                        </div>
+                        <div class="preview-row">
+                            <span>Total repayment</span>
+                            <strong id="preview-repayment">R0.00</strong>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="submit">Save Changes</button>
+                        <a class="button subtle" href="{{ url_for('dashboard') }}">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+    <script>
+        const interestRate = Number("{{ interest_rate }}");
+        const loanInput = document.getElementById("loan");
+        const interestOutput = document.getElementById("preview-interest");
+        const repaymentOutput = document.getElementById("preview-repayment");
+        const currency = new Intl.NumberFormat("en-ZA", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        function cleanAmount(value) {
+            return Number(String(value).replace(/,/g, "").trim());
+        }
+
+        function updatePreview() {
+            const amount = cleanAmount(loanInput.value);
+            if (!Number.isFinite(amount) || amount <= 0) {
+                interestOutput.textContent = "R0.00";
+                repaymentOutput.textContent = "R0.00";
+                return;
+            }
+
+            const interest = amount * interestRate;
+            interestOutput.textContent = `R${currency.format(interest)}`;
+            repaymentOutput.textContent = `R${currency.format(amount + interest)}`;
+        }
+
+        loanInput.addEventListener("input", updatePreview);
+        updatePreview();
+    </script>
+</body>
+</html>

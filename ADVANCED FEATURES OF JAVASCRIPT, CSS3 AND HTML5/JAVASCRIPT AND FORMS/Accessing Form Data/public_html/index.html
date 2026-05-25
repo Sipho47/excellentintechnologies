@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        function doIt() {
+            var elem = document.forms["form1"];
+            var formData = "";
+            for (var i = 0; i < elem.length - 1; i++) {
+                formData += elem[i].value + "<br>";
+            }
+            document.getElementById("output").innerHTML = formData;
+        }
+    </script>
+</head>
+<body>
+    <form name="form1">
+        Name: <input type="text" id="name" /><br><br>
+        Address: <input type="text" id="address" /><br><br>
+        Email: <input type="text" id="email" /><br><br>
+        Phone: <input type="text" id="phone" /><br><br>
+        <input type="button" onclick="doIt()" value="GO" /><br><br>
+    </form>
+    <div id="output"></div>
+</body>
+</html>

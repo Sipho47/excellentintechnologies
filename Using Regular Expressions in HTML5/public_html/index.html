@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pattern</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        function validateEmail() {
+            var emailInput = document.getElementById("email");
+            var email = emailInput.value;
+            var emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+            if (emailRegex.test(email)) {
+                // Valid email
+                emailInput.style.borderColor = "green";
+            } else {
+                // Invalid email
+                emailInput.style.borderColor = "red";
+            }
+        }
+    </script>
+</head>
+<body>
+    <form>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" oninput="validateEmail()" required>
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>

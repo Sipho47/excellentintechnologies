@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript">
+        function confirmMe() {
+            var result;
+            var userInput = prompt("Enter your choice:"); // Prompt the user for input
+            if (userInput !== null) { // Check if the user clicked OK or Cancel
+                result = "Welcome to our website!: " + userInput; // Fixed the string concatenation
+            } else {
+                result = "Cancelling";
+            }
+            document.getElementById("output").innerHTML = result; // Update the result in the output paragraph
+        }
+    </script>
+</head>
+<body>
+    <p>Press to Continue</p>
+    <input type="button" onclick="confirmMe()" value="Submit" /> <!-- Call confirmMe() instead of confirm() -->
+    <p id="output"></p>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HackOps Security Console</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Scan controls">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">H</span>
+        <div>
+          <h1>HackOps</h1>
+          <p>Security Console v3.0</p>
+        </div>
+      </div>
+
+      <section class="panel control-panel">
+        <div class="field">
+          <label for="targetInput">Target</label>
+          <input id="targetInput" class="target-input" autocomplete="off" spellcheck="false" placeholder="192.168.1.10 or example.com">
+          <p id="targetHint" class="field-hint">Use only systems you own or are authorized to assess.</p>
+        </div>
+
+        <div class="field">
+          <label for="modeSelect">Scan Mode</label>
+          <select id="modeSelect" class="mode-select">
+            <option value="fast">Fast discovery</option>
+            <option value="standard">Full port sweep</option>
+            <option value="service">Service fingerprint</option>
+            <option value="aggressive">Deep audit</option>
+            <option value="vuln">Vulnerability scripts</option>
+          </select>
+        </div>
+
+        <div class="action-grid">
+          <button id="scanBtn" class="btn btn-primary" type="button">
+            <span>Start Scan</span>
+          </button>
+          <button id="exploitBtn" class="btn btn-warning" type="button">
+            <span>Risk Review</span>
+          </button>
+          <button id="patchBtn" class="btn btn-success" type="button">
+            <span>Hardening Plan</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Recent Work</h2>
+          <button id="clearHistoryBtn" class="icon-btn" type="button" title="Clear history" aria-label="Clear history">Clear</button>
+        </div>
+        <div id="historyBox" class="history-box empty-state">No recent activity</div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Authorized assessment workspace</p>
+          <h2>Cyber Defense Simulator</h2>
+        </div>
+        <div class="topbar-actions">
+          <button id="copyBtn" class="btn btn-secondary" type="button">Copy Logs</button>
+          <button id="exportBtn" class="btn btn-secondary" type="button">Export Report</button>
+          <button id="clearBtn" class="btn btn-secondary" type="button">Reset</button>
+        </div>
+      </header>
+
+      <section class="status-grid" aria-label="Current operation status">
+        <article class="status-card panel">
+          <div class="status-header">
+            <div>
+              <span class="status-label">Status</span>
+              <p id="statusText" class="status-text">Ready</p>
+            </div>
+            <span id="statusIndicator" class="status-dot idle" aria-label="Idle"></span>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <span id="progressBar" class="progress-bar"></span>
+          </div>
+          <div class="status-meta">
+            <span id="modeDisplay">Mode: fast discovery</span>
+            <span id="timerDisplay">Elapsed: 0s</span>
+          </div>
+        </article>
+
+        <article class="metric-card panel">
+          <span class="metric-label">Findings</span>
+          <strong id="findingCount">0</strong>
+        </article>
+        <article class="metric-card panel">
+          <span class="metric-label">Recommendations</span>
+          <strong id="patchCount">0</strong>
+        </article>
+        <article class="metric-card panel">
+          <span class="metric-label">Ports Seen</span>
+          <strong id="portCount">0</strong>
+        </article>
+      </section>
+
+      <nav class="tabs" aria-label="Result views">
+        <button class="tab-btn active" data-tab="logs" type="button">Logs</button>
+        <button class="tab-btn" data-tab="results" type="button">Findings</button>
+        <button class="tab-btn" data-tab="summary" type="button">Summary</button>
+      </nav>
+
+      <section class="workspace">
+        <div class="panel tab-content active" id="logs-tab">
+          <div class="content-header">
+            <h3>Event Stream</h3>
+            <span id="lineCount" class="pill">0 lines</span>
+          </div>
+          <div id="logBox" class="log-box" aria-live="polite"></div>
+        </div>
+
+        <div class="panel tab-content" id="results-tab">
+          <div class="content-header">
+            <h3>Structured Findings</h3>
+            <span id="resultCount" class="pill">0 items</span>
+          </div>
+          <div id="resultsBox" class="results-box empty-state">Run an assessment to populate findings.</div>
+        </div>
+
+        <div class="panel tab-content" id="summary-tab">
+          <div class="content-header">
+            <h3>Assessment Summary</h3>
+            <span id="lastRunDisplay" class="pill">No run yet</span>
+          </div>
+          <div id="summaryBox" class="summary-box empty-state">Summary details will appear after a scan, risk review, or hardening plan.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

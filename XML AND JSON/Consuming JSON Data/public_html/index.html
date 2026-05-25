@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <button type="button" onclick="loadDoc()">Send</button>
+
+    <p id="demo"></p>
+
+    <script>
+        function loadDoc() {
+            var xhttp = new XMLHttpRequest();
+
+            xhttp.onreadystatechange = function() {
+                if (this.readyState === 4 && this.status === 200) {
+                    var response = JSON.parse(this.responseText); // Fix: JSON.parse instead of json.parse
+                    document.getElementById("demo").innerHTML = response.firstName + " " + response.lastName;
+                }
+            };
+            xhttp.open("GET", "ping.json"); // Fix: put the URL of the JSON file in quotes
+            xhttp.send();
+        }
+    </script>
+</body>
+</html>

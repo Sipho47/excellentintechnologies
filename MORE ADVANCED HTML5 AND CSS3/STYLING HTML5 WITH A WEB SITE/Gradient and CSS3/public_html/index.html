@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Use the correct CSS selectors (#) for the div elements */
+        #gradient1 {
+            background: blue;
+            background: -moz-linear-gradient(right, blue, red, green);
+            background: linear-gradient(to right, blue, red, green);
+            height: 100px; /* Add a height for visibility */
+        }
+
+        #gradient2 {
+            background: blue;
+            background: -moz-repeating-linear-gradient(-45deg, red 0%, yellow 20%);
+            background: repeating-linear-gradient(-45deg, red 0%, yellow 20%);
+            height: 100px; /* Add a height for visibility */
+        }
+
+        #gradient3 {
+            background: red;
+            background: -moz-radial-gradient(20% 40%, farthest-side, red, yellow);
+            background: radial-gradient(20% 40%, farthest-side, red, yellow);
+            height: 100px; /* Add a height for visibility */
+        }
+    </style>
+</head>
+<body>
+    <!-- Fix the div IDs to match the CSS selectors -->
+    <div id="gradient1"></div>
+    <div id="gradient2"></div>
+    <div id="gradient3"></div>
+</body>
+</html>
