@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atlas PM</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="brand">
+          <div class="brand-mark">A</div>
+          <div>
+            <strong>Atlas PM</strong>
+            <span>Project command center</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Views">
+          <button class="nav-item is-active" data-view="dashboard" type="button">
+            <span class="nav-icon">01</span>
+            Dashboard
+          </button>
+          <button class="nav-item" data-view="projects" type="button">
+            <span class="nav-icon">02</span>
+            Projects
+          </button>
+          <button class="nav-item" data-view="board" type="button">
+            <span class="nav-icon">03</span>
+            Board
+          </button>
+          <button class="nav-item" data-view="timeline" type="button">
+            <span class="nav-icon">04</span>
+            Timeline
+          </button>
+          <button class="nav-item" data-view="people" type="button">
+            <span class="nav-icon">05</span>
+            People
+          </button>
+          <button class="nav-item" data-view="reports" type="button">
+            <span class="nav-icon">06</span>
+            Reports
+          </button>
+        </nav>
+
+        <div class="workspace-card">
+          <span class="eyebrow">Workspace health</span>
+          <div class="health-meter" aria-hidden="true">
+            <span></span>
+          </div>
+          <p id="sidebar-summary">Loading workspace...</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Today</p>
+            <h1 id="page-title">Dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <label class="search-box">
+              <span>Search</span>
+              <input id="search-input" type="search" placeholder="Project, task, person..." />
+            </label>
+            <button id="theme-toggle" class="ghost-button" type="button" aria-pressed="false">Dark</button>
+            <button id="export-data" class="ghost-button" type="button">Export</button>
+            <button id="import-data" class="ghost-button" type="button">Import</button>
+            <input id="import-file" class="hidden-input" type="file" accept="application/json" />
+            <button id="new-task-button" class="primary-button" type="button">New Task</button>
+          </div>
+        </header>
+
+        <section id="dashboard-view" class="view is-active" aria-labelledby="page-title">
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Active projects</span>
+              <strong id="metric-projects">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Open tasks</span>
+              <strong id="metric-open">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Due this week</span>
+              <strong id="metric-due">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Team capacity</span>
+              <strong id="metric-capacity">0%</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Priority work</h2>
+                <button class="text-button" data-view-jump="board" type="button">Open board</button>
+              </div>
+              <div id="priority-list" class="task-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Project progress</h2>
+                <button class="text-button" data-view-jump="projects" type="button">Manage</button>
+              </div>
+              <div id="project-progress-list" class="progress-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="projects-view" class="view" aria-labelledby="page-title">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Projects</h2>
+                <button id="new-project-button" class="secondary-button" type="button">Add Project</button>
+              </div>
+              <div id="projects-list" class="project-grid"></div>
+            </section>
+            <section class="panel">
+              <h2>Project brief</h2>
+              <form id="project-form" class="form-grid">
+                <input type="hidden" id="project-id" />
+                <label>
+                  Name
+                  <input id="project-name" required />
+                </label>
+                <label>
+                  Owner
+                  <select id="project-owner"></select>
+                </label>
+                <label>
+                  Status
+                  <select id="project-status">
+                    <option>Discovery</option>
+                    <option>Active</option>
+                    <option>At risk</option>
+                    <option>Paused</option>
+                    <option>Complete</option>
+                  </select>
+                </label>
+                <label>
+                  Due date
+                  <input id="project-due" type="date" />
+                </label>
+                <label class="wide">
+                  Description
+                  <textarea id="project-description" rows="4"></textarea>
+                </label>
+                <div class="form-actions wide">
+                  <button class="ghost-button" id="delete-project-button" type="button">Delete</button>
+                  <button class="primary-button" type="submit">Save Project</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section id="board-view" class="view" aria-labelledby="page-title">
+          <div class="board-toolbar">
+            <label>
+              Project
+              <select id="project-filter"></select>
+            </label>
+            <label>
+              Assignee
+              <select id="assignee-filter"></select>
+            </label>
+            <label>
+              Priority
+              <select id="priority-filter">
+                <option value="all">All priorities</option>
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+            </label>
+          </div>
+          <div id="kanban-board" class="kanban-board" aria-live="polite"></div>
+        </section>
+
+        <section id="timeline-view" class="view" aria-labelledby="page-title">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Timeline</h2>
+              <span id="timeline-count" class="subtle"></span>
+            </div>
+            <div id="timeline-list" class="timeline-list"></div>
+          </section>
+        </section>
+
+        <section id="people-view" class="view" aria-labelledby="page-title">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Team</h2>
+                <button id="new-person-button" class="secondary-button" type="button">Add Person</button>
+              </div>
+              <div id="people-list" class="people-list"></div>
+            </section>
+            <section class="panel">
+              <h2>Team member</h2>
+              <form id="person-form" class="form-grid">
+                <input type="hidden" id="person-id" />
+                <label>
+                  Name
+                  <input id="person-name" required />
+                </label>
+                <label>
+                  Role
+                  <input id="person-role" required />
+                </label>
+                <label>
+                  Weekly capacity
+                  <input id="person-capacity" type="number" min="1" max="80" required />
+                </label>
+                <label>
+                  Color
+                  <input id="person-color" type="color" />
+                </label>
+                <div class="form-actions wide">
+                  <button class="ghost-button" id="delete-person-button" type="button">Delete</button>
+                  <button class="primary-button" type="submit">Save Person</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section id="reports-view" class="view" aria-labelledby="page-title">
+          <div class="report-grid">
+            <section class="panel">
+              <h2>Status breakdown</h2>
+              <div id="status-chart" class="bar-chart"></div>
+            </section>
+            <section class="panel">
+              <h2>Workload</h2>
+              <div id="workload-chart" class="bar-chart"></div>
+            </section>
+            <section class="panel wide-panel">
+              <h2>Risks and blockers</h2>
+              <div id="risk-list" class="task-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="task-dialog">
+      <form id="task-form" method="dialog" class="task-form">
+        <div class="dialog-heading">
+          <h2 id="task-dialog-title">New Task</h2>
+          <button id="close-task-dialog" class="icon-button" type="button" aria-label="Close">x</button>
+        </div>
+        <input id="task-id" type="hidden" />
+        <label>
+          Task name
+          <input id="task-title" required />
+        </label>
+        <div class="form-grid">
+          <label>
+            Project
+            <select id="task-project"></select>
+          </label>
+          <label>
+            Assignee
+            <select id="task-assignee"></select>
+          </label>
+          <label>
+            Status
+            <select id="task-status">
+              <option>Backlog</option>
+              <option>Ready</option>
+              <option>In Progress</option>
+              <option>Review</option>
+              <option>Done</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select id="task-priority">
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </label>
+          <label>
+            Due date
+            <input id="task-due" type="date" />
+          </label>
+          <label>
+            Estimate
+            <input id="task-estimate" type="number" min="0" step="0.5" />
+          </label>
+        </div>
+        <label>
+          Notes
+          <textarea id="task-notes" rows="4"></textarea>
+        </label>
+        <div class="form-actions">
+          <button id="delete-task-button" class="ghost-button" type="button">Delete</button>
+          <button class="primary-button" value="save" type="submit">Save Task</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
