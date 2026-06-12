@@ -1,0 +1,1733 @@
+
+
+
+
+
+
+
+#property strict
+#property version   "3.60"
+#property description "Safer automated multi-symbol EA with risk sizing, ATR exits, trend/MACD/RSI filters, and drawdown controls."
+
+#include <Trade/Trade.mqh>
+
+#define EA_VERSION "3.60"
+
+input group "Risk"
+input bool            UseRiskLotSizing          = true;
+input double          RiskPercentPerTrade       = 0.25;
+input double          FixedLots                 = 0.01;
+input double          MaxLots                   = 0.05;
+input double          MinMarginLevelPercent     = 300.0;
+input double          MaxDailyLossPercent       = 3.0;
+input double          MaxAccountDrawdownPercent = 20.0;
+input bool            CloseOnMaxDailyLoss       = true;
+input bool            CloseOnMaxDrawdown        = true;
+
+input group "Moving Averages"
+input int             FastEmaLength             = 21;
+input int             SlowEmaLength             = 55;
+input int             TrendEmaLength            = 200;
+input int             StrongTrendFastEmaLength  = 50;
+input int             StrongTrendSlowEmaLength  = 200;
+input bool            InpUseMaFilter            = true;
+input bool            RequireFreshCross         = false;
+input bool            RequireFreshMaCross       = false;
+input bool            RequireCrossFinal         = false;
+input bool            UseMaContinuationEntry    = true;
+input bool            InpUseTrendFilter         = true;
+input bool            InpUseHtfTrendFilter      = true;
+input bool            UseHigherTimeframe        = true;
+input ENUM_TIMEFRAMES HigherTimeframe           = PERIOD_H1;
+input bool            RequireHigherTimeframeData = true;
+input bool            RequirePriceVsTrendEma    = false;
+input bool            UseEmaSeparationFilter    = true;
+input double          MinEmaSeparationAtr       = 0.10;
+
+input group "Momentum And Volatility"
+input int             MacdFastEma               = 12;
+input int             MacdSlowEma               = 26;
+input int             MacdSignalSma             = 9;
+input bool            InpUseMacdFilter          = true;
+input bool            RequireMacdConfirm        = true;
+input bool            RequireMacdFinal          = false;
+input bool            RequireFreshMacdCross     = false;
+input bool            UseMacdHistogramContinuation = true;
+input int             RsiLength                 = 14;
+input bool            UseRsiFilter              = false;
+input bool            AllowBuyBounce            = true;
+input double          BuyMinRsi                 = 50.0;
+input bool            BlockBuyWhenRsiBelow50    = true;
+input bool            BlockSellWhenRsiAbove50   = true;
+input double          SellMaxRsi                = 55.0;
+input double          LongRsiMinimum            = 50.0;
+input double          LongRsiMaximum            = 72.0;
+input double          ShortRsiMinimum           = 28.0;
+input double          ShortRsiMaximum           = 50.0;
+input int             AtrLength                 = 14;
+input bool            InpUseAtrVolatilityFilter = true;
+input double          MinAtrPoints              = 80.0;
+input double          MaxAtrPoints              = 500.0;
+input bool            AutoScalePointFiltersToSymbol = true;
+input double          AutoMinAtrPricePercent    = 0.02;
+input double          AutoMaxAtrPricePercent    = 0.20;
+input double          AutoStrongTrendEmaSeparationPercent = 0.05;
+input double          StopAtrMultiple           = 1.5;
+input double          RewardRiskRatio           = 1.5;
+input double          MinMacdHistogramAtr       = 0.02;
+input bool            InpUseSignalScoring       = true;
+input int             InpMinSignalScore         = 6;
+input bool            InpScoreMacdFilter        = true;
+input bool            InpScoreAtrFilter         = false;
+input bool            InpUseStrongTrendMode     = true;
+input int             AdxLength                 = 14;
+input bool            InpUseAdxEntryFilter      = true;
+input bool            RequireAdxEntryFinal      = false;
+input double          InpMinEntryAdx            = 25.0;
+input double          StrongTrendAdxMinimum     = 25.0;
+input double          StrongTrendEmaSeparationPoints = 250.0;
+input bool            InpUseBuyReversalMode     = false;
+input int             InpBuyReversalMinScore    = 9;
+input double          InpBuyReversalRsiLevel    = 40.0;
+input double          InpBuyReversalOversoldRsi = 35.0;
+input bool            InpUseSignalConflictFilter = true;
+input bool            RequireSignalConflictFinal = false;
+input bool            RequireOppositeTrendBlock = false;
+input int             InpMinSignalScoreAdvantage = 1;
+
+input group "Trade Management"
+input int             InpMaxOpenTrades          = 10;
+input int             InpMaxTradesPerDay        = 100;
+input ulong           MagicNumber               = 20260607;
+input int             SlippagePoints            = 30;
+input bool            TradeOnNewBarOnly         = true;
+input int             InpMinBarsBetweenTrades   = 0;
+input int             InpMinBarsBetweenSameDirection = 2;
+input bool            InpCloseOppositeOnSignal  = false;
+input bool            InpUseBreakEven           = true;
+input double          InpBreakEvenR             = 1.0;
+input int             BreakevenPlusPoints       = 30;
+input bool            InpUseTrailingStop        = true;
+input double          InpTrailStartR            = 1.2;
+input double          InpTrailStepR             = 0.5;
+input int             InpMaxConsecutiveLosses   = 3;
+input int             InpPauseBarsAfterLoss     = 4;
+
+input group "Filters"
+input bool            AllowLongTrades           = true;
+input bool            AllowShortTrades          = true;
+input int             MaxSpreadPoints           = 250;
+input bool            UseSessionFilter          = false;
+input bool            IgnoreSessionFilterInTester = true;
+input int             SessionStartHour          = 7;
+input int             SessionEndHour            = 22;
+input bool            UseNewsTimeFilter         = false;
+input int             NewsBlockStartHour        = 14;
+input int             NewsBlockStartMinute      = 20;
+input int             NewsBlockEndHour          = 15;
+input int             NewsBlockEndMinute        = 10;
+input bool            LogServerTimeOnSkip       = true;
+input bool            DebugLogs                 = true;
+
+input group "Date Filter"
+input bool            UseDateFilter             = false;
+input datetime        StartDate                 = D'2020.01.01 00:00';
+input datetime        EndDate                   = D'2030.01.01 00:00';
+
+CTrade trade;
+
+int fastEmaHandle = INVALID_HANDLE;
+int slowEmaHandle = INVALID_HANDLE;
+int trendEmaHandle = INVALID_HANDLE;
+int strongFastEmaHandle = INVALID_HANDLE;
+int strongSlowEmaHandle = INVALID_HANDLE;
+int htfFastEmaHandle = INVALID_HANDLE;
+int htfSlowEmaHandle = INVALID_HANDLE;
+int htfTrendEmaHandle = INVALID_HANDLE;
+int macdHandle = INVALID_HANDLE;
+int rsiHandle = INVALID_HANDLE;
+int atrHandle = INVALID_HANDLE;
+int adxHandle = INVALID_HANDLE;
+
+datetime lastBarTime = 0;
+datetime lastTradeBarTime = 0;
+datetime lastBuyTradeBarTime = 0;
+datetime lastSellTradeBarTime = 0;
+datetime lastLossBarTime = 0;
+datetime dailyAnchorTime = 0;
+double dailyAnchorEquity = 0.0;
+int tradesToday = 0;
+int consecutiveLosses = 0;
+double peakEquity = 0.0;
+bool riskStopActive = false;
+bool accountDrawdownStopActive = false;
+
+int OnInit()
+{
+   Print("MA_MACD_STRATEGY v", EA_VERSION, " initializing on ", _Symbol, " ", EnumToString(_Period));
+   PrintFormat("INPUT CHECK | version=%s RiskPercent=%.2f InpUseMaFilter=%s InpUseTrendFilter=%s InpUseHtfTrendFilter=%s RequireCrossFinal=%s InpUseMacdFilter=%s RequireMacdConfirm=%s RequireMacdFinal=%s UseRsiFilter=%s InpUseAtrVolatilityFilter=%s Score=%s MinScore=%d ScoreMacd=%s ScoreAtr=%s AdxEntryFilter=%s RequireAdxEntryFinal=%s MinEntryAdx=%.2f AllowLong=%s AllowShort=%s InpMaxOpenTrades=%d InpMaxTradesPerDay=%d InpMinBarsBetweenTrades=%d InpMinBarsBetweenSameDirection=%d CloseOpposite=%s",
+               EA_VERSION,
+               RiskPercentPerTrade,
+               BoolToString(InpUseMaFilter),
+               BoolToString(InpUseTrendFilter),
+               BoolToString(InpUseHtfTrendFilter),
+               BoolToString(RequireCrossFinal),
+               BoolToString(InpUseMacdFilter),
+               BoolToString(RequireMacdConfirm),
+               BoolToString(RequireMacdFinal),
+               BoolToString(UseRsiFilter),
+               BoolToString(InpUseAtrVolatilityFilter),
+               BoolToString(InpUseSignalScoring),
+               InpMinSignalScore,
+               BoolToString(InpScoreMacdFilter),
+               BoolToString(InpScoreAtrFilter),
+               BoolToString(InpUseAdxEntryFilter),
+               BoolToString(RequireAdxEntryFinal),
+               InpMinEntryAdx,
+               BoolToString(AllowLongTrades),
+               BoolToString(AllowShortTrades),
+               InpMaxOpenTrades,
+               InpMaxTradesPerDay,
+               InpMinBarsBetweenTrades,
+               InpMinBarsBetweenSameDirection,
+               BoolToString(InpCloseOppositeOnSignal));
+
+   if(!ValidateInputs())
+   {
+      Print("EA startup failed: invalid input settings.");
+      return INIT_PARAMETERS_INCORRECT;
+   }
+
+   trade.SetExpertMagicNumber(MagicNumber);
+   trade.SetDeviationInPoints(SlippagePoints);
+
+   if(UseHigherTimeframe || InpUseHtfTrendFilter)
+      PrepareHigherTimeframeData();
+
+   fastEmaHandle = iMA(_Symbol, _Period, FastEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+   slowEmaHandle = iMA(_Symbol, _Period, SlowEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+   trendEmaHandle = iMA(_Symbol, _Period, TrendEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+   strongFastEmaHandle = iMA(_Symbol, _Period, StrongTrendFastEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+   strongSlowEmaHandle = iMA(_Symbol, _Period, StrongTrendSlowEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+
+   if(UseHigherTimeframe || InpUseHtfTrendFilter)
+   {
+      ResetLastError();
+      htfFastEmaHandle = iMA(_Symbol, HigherTimeframe, FastEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+      htfSlowEmaHandle = iMA(_Symbol, HigherTimeframe, SlowEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+      htfTrendEmaHandle = iMA(_Symbol, HigherTimeframe, TrendEmaLength, 0, MODE_EMA, PRICE_CLOSE);
+      if(htfFastEmaHandle == INVALID_HANDLE || htfSlowEmaHandle == INVALID_HANDLE || htfTrendEmaHandle == INVALID_HANDLE)
+         Print("HTF EMA handle failed. fast=", htfFastEmaHandle, " slow=", htfSlowEmaHandle, " trend=", htfTrendEmaHandle, " Error=", GetLastError(), ". Current timeframe trend EMA will be used.");
+   }
+
+   macdHandle = iMACD(_Symbol, _Period, MacdFastEma, MacdSlowEma, MacdSignalSma, PRICE_CLOSE);
+   rsiHandle = iRSI(_Symbol, _Period, RsiLength, PRICE_CLOSE);
+   atrHandle = iATR(_Symbol, _Period, AtrLength);
+   adxHandle = iADX(_Symbol, _Period, AdxLength);
+
+   if(fastEmaHandle == INVALID_HANDLE || slowEmaHandle == INVALID_HANDLE ||
+      trendEmaHandle == INVALID_HANDLE || strongFastEmaHandle == INVALID_HANDLE ||
+      strongSlowEmaHandle == INVALID_HANDLE || macdHandle == INVALID_HANDLE ||
+      rsiHandle == INVALID_HANDLE || atrHandle == INVALID_HANDLE ||
+      adxHandle == INVALID_HANDLE)
+   {
+      PrintFormat("EA startup failed: indicator handle error. fast=%d slow=%d trend=%d strongFast=%d strongSlow=%d macd=%d rsi=%d atr=%d adx=%d lastError=%d",
+                  fastEmaHandle,
+                  slowEmaHandle,
+                  trendEmaHandle,
+                  strongFastEmaHandle,
+                  strongSlowEmaHandle,
+                  macdHandle,
+                  rsiHandle,
+                  atrHandle,
+                  adxHandle,
+                  GetLastError());
+      return INIT_FAILED;
+   }
+
+   ResetDailyLossAnchor();
+   peakEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+
+   Print("MA_MACD_STRATEGY v", EA_VERSION, " started on ", _Symbol, " ", EnumToString(_Period));
+   return INIT_SUCCEEDED;
+}
+
+void OnDeinit(const int reason)
+{
+   ReleaseHandle(fastEmaHandle);
+   ReleaseHandle(slowEmaHandle);
+   ReleaseHandle(trendEmaHandle);
+   ReleaseHandle(strongFastEmaHandle);
+   ReleaseHandle(strongSlowEmaHandle);
+   ReleaseHandle(htfFastEmaHandle);
+   ReleaseHandle(htfSlowEmaHandle);
+   ReleaseHandle(htfTrendEmaHandle);
+   ReleaseHandle(macdHandle);
+   ReleaseHandle(rsiHandle);
+   ReleaseHandle(atrHandle);
+   ReleaseHandle(adxHandle);
+}
+
+void OnTick()
+{
+   UpdateRiskStops();
+   ManageOpenPositions();
+
+   if(TradeOnNewBarOnly && !IsNewBar())
+      return;
+
+   if(!CanTradeNow())
+      return;
+
+   CheckForEntry();
+}
+
+void OnTradeTransaction(const MqlTradeTransaction &trans,
+                        const MqlTradeRequest &request,
+                        const MqlTradeResult &result)
+{
+   if(trans.type != TRADE_TRANSACTION_DEAL_ADD || trans.deal == 0)
+      return;
+
+   if(!HistoryDealSelect(trans.deal))
+      return;
+
+   if(HistoryDealGetString(trans.deal, DEAL_SYMBOL) != _Symbol)
+      return;
+
+   if((ulong)HistoryDealGetInteger(trans.deal, DEAL_MAGIC) != MagicNumber)
+      return;
+
+   long entry = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
+   if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_INOUT && entry != DEAL_ENTRY_OUT_BY)
+      return;
+
+   double resultMoney = HistoryDealGetDouble(trans.deal, DEAL_PROFIT) +
+                        HistoryDealGetDouble(trans.deal, DEAL_SWAP) +
+                        HistoryDealGetDouble(trans.deal, DEAL_COMMISSION);
+
+   if(resultMoney < 0.0)
+   {
+      consecutiveLosses++;
+      lastLossBarTime = iTime(_Symbol, _Period, 0);
+      if(DebugLogs)
+      {
+         PrintFormat("LOSS TRACKER | closedLoss=%.2f consecutiveLosses=%d pauseAfter=%d lastLossBar=%s",
+                     resultMoney,
+                     consecutiveLosses,
+                     InpPauseBarsAfterLoss,
+                     TimeToString(lastLossBarTime, TIME_DATE | TIME_MINUTES));
+      }
+   }
+   else if(resultMoney > 0.0)
+   {
+      if(DebugLogs && consecutiveLosses > 0)
+         PrintFormat("LOSS TRACKER RESET | closedProfit=%.2f previousConsecutiveLosses=%d", resultMoney, consecutiveLosses);
+      consecutiveLosses = 0;
+   }
+}
+
+bool ValidateInputs()
+{
+   bool ok = true;
+
+   if(FastEmaLength < 1) { Print("Invalid FastEmaLength: ", FastEmaLength); ok = false; }
+   if(SlowEmaLength < 2) { Print("Invalid SlowEmaLength: ", SlowEmaLength); ok = false; }
+   if(TrendEmaLength < 10) { Print("Invalid TrendEmaLength: ", TrendEmaLength); ok = false; }
+   if(StrongTrendFastEmaLength < 1) { Print("Invalid StrongTrendFastEmaLength: ", StrongTrendFastEmaLength); ok = false; }
+   if(StrongTrendSlowEmaLength <= StrongTrendFastEmaLength) { Print("Invalid strong trend EMA periods. Slow must be greater than fast."); ok = false; }
+   if(MacdFastEma < 1) { Print("Invalid MacdFastEma: ", MacdFastEma); ok = false; }
+   if(MacdSlowEma <= MacdFastEma) { Print("Invalid MACD periods. Slow must be greater than fast."); ok = false; }
+   if(MacdSignalSma < 1) { Print("Invalid MacdSignalSma: ", MacdSignalSma); ok = false; }
+   if(RsiLength < 2) { Print("Invalid RsiLength: ", RsiLength); ok = false; }
+   if(AtrLength < 1) { Print("Invalid AtrLength: ", AtrLength); ok = false; }
+   if(AdxLength < 2) { Print("Invalid AdxLength: ", AdxLength); ok = false; }
+   if(StopAtrMultiple <= 0.0) { Print("Invalid StopAtrMultiple: ", StopAtrMultiple); ok = false; }
+   if(RewardRiskRatio <= 0.0) { Print("Invalid RewardRiskRatio: ", RewardRiskRatio); ok = false; }
+   if(MinAtrPoints < 0.0) { Print("Invalid MinAtrPoints: ", MinAtrPoints); ok = false; }
+   if(MaxAtrPoints <= MinAtrPoints) { Print("Invalid MaxAtrPoints. It must be greater than MinAtrPoints."); ok = false; }
+   if(AutoMinAtrPricePercent < 0.0) { Print("Invalid AutoMinAtrPricePercent: ", AutoMinAtrPricePercent); ok = false; }
+   if(AutoMaxAtrPricePercent <= AutoMinAtrPricePercent) { Print("Invalid AutoMaxAtrPricePercent. It must be greater than AutoMinAtrPricePercent."); ok = false; }
+   if(AutoStrongTrendEmaSeparationPercent < 0.0) { Print("Invalid AutoStrongTrendEmaSeparationPercent: ", AutoStrongTrendEmaSeparationPercent); ok = false; }
+   if(MinEmaSeparationAtr < 0.0) { Print("Invalid MinEmaSeparationAtr: ", MinEmaSeparationAtr); ok = false; }
+   if(MinMacdHistogramAtr < 0.0) { Print("Invalid MinMacdHistogramAtr: ", MinMacdHistogramAtr); ok = false; }
+   if(InpMinSignalScore < 1 || InpMinSignalScore > 10) { Print("Invalid InpMinSignalScore: ", InpMinSignalScore); ok = false; }
+   if(InpBuyReversalMinScore < 1 || InpBuyReversalMinScore > 10) { Print("Invalid InpBuyReversalMinScore: ", InpBuyReversalMinScore); ok = false; }
+   if(InpBuyReversalRsiLevel < 0.0 || InpBuyReversalRsiLevel > 100.0) { Print("Invalid InpBuyReversalRsiLevel: ", InpBuyReversalRsiLevel); ok = false; }
+   if(InpBuyReversalOversoldRsi < 0.0 || InpBuyReversalOversoldRsi > 100.0) { Print("Invalid InpBuyReversalOversoldRsi: ", InpBuyReversalOversoldRsi); ok = false; }
+   if(InpMinSignalScoreAdvantage < 0 || InpMinSignalScoreAdvantage > 5) { Print("Invalid InpMinSignalScoreAdvantage: ", InpMinSignalScoreAdvantage); ok = false; }
+   if(InpMinEntryAdx < 0.0) { Print("Invalid InpMinEntryAdx: ", InpMinEntryAdx); ok = false; }
+   if(StrongTrendAdxMinimum < 0.0) { Print("Invalid StrongTrendAdxMinimum: ", StrongTrendAdxMinimum); ok = false; }
+   if(StrongTrendEmaSeparationPoints < 0.0) { Print("Invalid StrongTrendEmaSeparationPoints: ", StrongTrendEmaSeparationPoints); ok = false; }
+   if(RiskPercentPerTrade <= 0.0) { Print("Invalid RiskPercentPerTrade: ", RiskPercentPerTrade); ok = false; }
+   if(!UseRiskLotSizing && FixedLots <= 0.0) { Print("Invalid FixedLots when risk sizing is disabled: ", FixedLots); ok = false; }
+   if(MaxLots <= 0.0) { Print("Invalid MaxLots: ", MaxLots); ok = false; }
+   if(InpMaxOpenTrades < 1) { Print("Invalid InpMaxOpenTrades: ", InpMaxOpenTrades); ok = false; }
+   if(InpMaxTradesPerDay < 1) { Print("Invalid InpMaxTradesPerDay: ", InpMaxTradesPerDay); ok = false; }
+   if(InpMinBarsBetweenTrades < 0) { Print("Invalid InpMinBarsBetweenTrades: ", InpMinBarsBetweenTrades); ok = false; }
+   if(InpMinBarsBetweenSameDirection < 0) { Print("Invalid InpMinBarsBetweenSameDirection: ", InpMinBarsBetweenSameDirection); ok = false; }
+   if(InpBreakEvenR < 0.0) { Print("Invalid InpBreakEvenR: ", InpBreakEvenR); ok = false; }
+   if(InpTrailStartR < 0.0) { Print("Invalid InpTrailStartR: ", InpTrailStartR); ok = false; }
+   if(InpTrailStepR <= 0.0) { Print("Invalid InpTrailStepR: ", InpTrailStepR); ok = false; }
+   if(InpMaxConsecutiveLosses < 1) { Print("Invalid InpMaxConsecutiveLosses: ", InpMaxConsecutiveLosses); ok = false; }
+   if(InpPauseBarsAfterLoss < 0) { Print("Invalid InpPauseBarsAfterLoss: ", InpPauseBarsAfterLoss); ok = false; }
+   if(MaxDailyLossPercent <= 0.0) { Print("Invalid MaxDailyLossPercent: ", MaxDailyLossPercent); ok = false; }
+   if(MaxAccountDrawdownPercent <= 0.0) { Print("Invalid MaxAccountDrawdownPercent: ", MaxAccountDrawdownPercent); ok = false; }
+   if(MinMarginLevelPercent <= 0.0) { Print("Invalid MinMarginLevelPercent: ", MinMarginLevelPercent); ok = false; }
+   if(MaxSpreadPoints < 0) { Print("Invalid MaxSpreadPoints: ", MaxSpreadPoints); ok = false; }
+
+   if(!ok)
+   {
+      return false;
+   }
+
+   if(UseSessionFilter && (SessionStartHour < 0 || SessionStartHour > 23 ||
+      SessionEndHour < 0 || SessionEndHour > 23))
+   {
+      Print("Invalid session filter hours.");
+      return false;
+   }
+
+   if(UseNewsTimeFilter && (NewsBlockStartHour < 0 || NewsBlockStartHour > 23 ||
+      NewsBlockEndHour < 0 || NewsBlockEndHour > 23 ||
+      NewsBlockStartMinute < 0 || NewsBlockStartMinute > 59 ||
+      NewsBlockEndMinute < 0 || NewsBlockEndMinute > 59))
+   {
+      Print("Invalid news time filter settings.");
+      return false;
+   }
+
+   return true;
+}
+
+double PricePercentToPoints(const double price, const double percent)
+{
+   if(price <= 0.0 || percent <= 0.0 || _Point <= 0.0)
+      return 0.0;
+
+   return price * percent / 100.0 / _Point;
+}
+
+double EffectiveMinAtrPoints(const double price)
+{
+   if(!AutoScalePointFiltersToSymbol)
+      return MinAtrPoints;
+
+   return PricePercentToPoints(price, AutoMinAtrPricePercent);
+}
+
+double EffectiveMaxAtrPoints(const double price)
+{
+   if(!AutoScalePointFiltersToSymbol)
+      return MaxAtrPoints;
+
+   return PricePercentToPoints(price, AutoMaxAtrPricePercent);
+}
+
+double EffectiveStrongTrendEmaSeparationPoints(const double price)
+{
+   if(!AutoScalePointFiltersToSymbol)
+      return StrongTrendEmaSeparationPoints;
+
+   return PricePercentToPoints(price, AutoStrongTrendEmaSeparationPercent);
+}
+
+void ReleaseHandle(int &handle)
+{
+   if(handle != INVALID_HANDLE)
+   {
+      IndicatorRelease(handle);
+      handle = INVALID_HANDLE;
+   }
+}
+
+bool PrepareHigherTimeframeData()
+{
+   MqlRates rates[];
+   ArraySetAsSeries(rates, true);
+
+   ResetLastError();
+   int copied = CopyRates(_Symbol, HigherTimeframe, 0, MathMax(TrendEmaLength + 20, 120), rates);
+   if(copied <= 0)
+   {
+      Print("Failed to preload HTF rates. TF=", EnumToString(HigherTimeframe), " Error=", GetLastError());
+      return false;
+   }
+
+   if(DebugLogs)
+      Print("Preloaded HTF rates. TF=", EnumToString(HigherTimeframe), " bars=", copied);
+
+   return true;
+}
+
+bool IsNewBar()
+{
+   datetime barTime = iTime(_Symbol, _Period, 0);
+   if(barTime == 0 || barTime == lastBarTime)
+      return false;
+
+   lastBarTime = barTime;
+   return true;
+}
+
+bool CanTradeNow()
+{
+   if(riskStopActive)
+   {
+      LogSkip("risk stop is active");
+      return false;
+   }
+
+   if(!InDateRange())
+   {
+      LogSkip("outside date range");
+      CloseAllOwnPositions();
+      return false;
+   }
+
+   if(!IsSessionOpen())
+   {
+      LogSkip("outside trading session");
+      return false;
+   }
+
+   if(IsNewsTimeBlocked())
+   {
+      LogSkip("inside configured news blackout window");
+      return false;
+   }
+
+   if(!IsSpreadOk())
+   {
+      LogSkip("spread too high");
+      return false;
+   }
+
+   if(tradesToday >= InpMaxTradesPerDay)
+   {
+      LogSkip("max trades per day reached");
+      return false;
+   }
+
+   if(IsTradeCooldownActive())
+   {
+      LogSkip("trade cooldown active");
+      return false;
+   }
+
+   if(IsLossPauseActive())
+   {
+      LogSkip("loss pause active after consecutive losses");
+      return false;
+   }
+
+   if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED))
+   {
+      LogSkip("terminal or EA trading permission disabled");
+      return false;
+   }
+
+   return true;
+}
+
+bool InDateRange()
+{
+   datetime now = TimeCurrent();
+   return !UseDateFilter || (now >= StartDate && now <= EndDate);
+}
+
+bool IsSpreadOk()
+{
+   if(MaxSpreadPoints <= 0)
+      return true;
+
+   return SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpreadPoints;
+}
+
+bool IsSessionOpen()
+{
+   if(IgnoreSessionFilterInTester)
+      return true;
+
+   if(!UseSessionFilter)
+      return true;
+
+   MqlDateTime parts;
+   TimeToStruct(TimeCurrent(), parts);
+   int hour = parts.hour;
+
+   if(SessionStartHour == SessionEndHour)
+      return true;
+
+   if(SessionStartHour < SessionEndHour)
+      return hour >= SessionStartHour && hour < SessionEndHour;
+
+   return hour >= SessionStartHour || hour < SessionEndHour;
+}
+
+bool IsNewsTimeBlocked()
+{
+   if(!UseNewsTimeFilter)
+      return false;
+
+   MqlDateTime parts;
+   TimeToStruct(TimeCurrent(), parts);
+   int nowMinutes = parts.hour * 60 + parts.min;
+   int startMinutes = NewsBlockStartHour * 60 + NewsBlockStartMinute;
+   int endMinutes = NewsBlockEndHour * 60 + NewsBlockEndMinute;
+
+   if(startMinutes == endMinutes)
+      return false;
+
+   if(startMinutes < endMinutes)
+      return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+
+   return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+}
+
+bool IsTradeCooldownActive()
+{
+   if(InpMinBarsBetweenTrades <= 0 || lastTradeBarTime == 0)
+      return false;
+
+   int shift = iBarShift(_Symbol, _Period, lastTradeBarTime, true);
+   bool active = shift >= 0 && shift < InpMinBarsBetweenTrades;
+
+   if(DebugLogs)
+   {
+      PrintFormat("COOLDOWN CHECK | active=%s barsSinceLastTrade=%d required=%d lastTradeBar=%s currentBar=%s",
+                  BoolToString(active),
+                  shift,
+                  InpMinBarsBetweenTrades,
+                  TimeToString(lastTradeBarTime, TIME_DATE | TIME_MINUTES),
+                  TimeToString(iTime(_Symbol, _Period, 0), TIME_DATE | TIME_MINUTES));
+   }
+
+   return active;
+}
+
+bool IsLossPauseActive()
+{
+   if(InpPauseBarsAfterLoss <= 0 || consecutiveLosses < InpMaxConsecutiveLosses || lastLossBarTime == 0)
+      return false;
+
+   int barsSinceLoss = BarsSince(lastLossBarTime);
+   bool active = barsSinceLoss >= 0 && barsSinceLoss < InpPauseBarsAfterLoss;
+
+   if(DebugLogs)
+   {
+      PrintFormat("LOSS PAUSE CHECK | active=%s consecutiveLosses=%d maxLosses=%d barsSinceLoss=%d requiredPauseBars=%d",
+                  BoolToString(active),
+                  consecutiveLosses,
+                  InpMaxConsecutiveLosses,
+                  barsSinceLoss,
+                  InpPauseBarsAfterLoss);
+   }
+
+   return active;
+}
+
+bool IsSameDirectionCooldownActive(const long positionType)
+{
+   if(InpMinBarsBetweenSameDirection <= 0)
+      return false;
+
+   datetime lastDirectionTradeBar = positionType == POSITION_TYPE_BUY ? lastBuyTradeBarTime : lastSellTradeBarTime;
+   if(lastDirectionTradeBar == 0)
+      return false;
+
+   int barsSinceTrade = BarsSince(lastDirectionTradeBar);
+   bool active = barsSinceTrade >= 0 && barsSinceTrade < InpMinBarsBetweenSameDirection;
+
+   if(DebugLogs)
+   {
+      PrintFormat("DIRECTION COOLDOWN | direction=%s active=%s barsSince=%d required=%d",
+                  positionType == POSITION_TYPE_BUY ? "BUY" : "SELL",
+                  BoolToString(active),
+                  barsSinceTrade,
+                  InpMinBarsBetweenSameDirection);
+   }
+
+   return active;
+}
+
+int BarsSince(const datetime barTime)
+{
+   if(barTime == 0)
+      return -1;
+
+   return iBarShift(_Symbol, _Period, barTime, true);
+}
+
+void ResetDailyLossAnchor()
+{
+   dailyAnchorTime = StartOfDay(TimeCurrent());
+   dailyAnchorEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+   tradesToday = 0;
+   if(!accountDrawdownStopActive)
+      riskStopActive = false;
+}
+
+void UpdateRiskStops()
+{
+   datetime currentDay = StartOfDay(TimeCurrent());
+   if(currentDay != dailyAnchorTime)
+      ResetDailyLossAnchor();
+
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   if(equity > peakEquity)
+      peakEquity = equity;
+
+   if(dailyAnchorEquity > 0.0)
+   {
+      double dailyLossPercent = (dailyAnchorEquity - equity) / dailyAnchorEquity * 100.0;
+      if(dailyLossPercent >= MaxDailyLossPercent)
+      {
+         riskStopActive = true;
+         Print("Max daily loss reached: ", DoubleToString(dailyLossPercent, 2), "%");
+         if(CloseOnMaxDailyLoss)
+            CloseAllOwnPositions();
+      }
+   }
+
+   if(peakEquity > 0.0)
+   {
+      double drawdownPercent = (peakEquity - equity) / peakEquity * 100.0;
+      if(drawdownPercent >= MaxAccountDrawdownPercent)
+      {
+         accountDrawdownStopActive = true;
+         riskStopActive = true;
+         Print("Max account drawdown reached: ", DoubleToString(drawdownPercent, 2), "%");
+         if(CloseOnMaxDrawdown)
+            CloseAllOwnPositions();
+      }
+   }
+}
+
+datetime StartOfDay(const datetime value)
+{
+   MqlDateTime parts;
+   TimeToStruct(value, parts);
+   parts.hour = 0;
+   parts.min = 0;
+   parts.sec = 0;
+   return StructToTime(parts);
+}
+
+int SignalScore(const bool maOk,
+                const bool crossOk,
+                const bool trendOk,
+                const bool macdOk,
+                const bool rsiOk,
+                const bool atrOk,
+                const bool rangeOk,
+                const bool htfTrendOk,
+                const bool volumeOk,
+                const bool momentumOk)
+{
+   int score = 0;
+   if(maOk) score++;
+   if(crossOk) score++;
+   if(trendOk) score++;
+   if(macdOk) score++;
+   if(rsiOk) score++;
+   if(atrOk) score++;
+   if(rangeOk) score++;
+   if(htfTrendOk) score++;
+   if(volumeOk) score++;
+   if(momentumOk) score++;
+   return score;
+}
+
+void CheckForEntry()
+{
+   double fast[], slow[], trend[], strongFast[], strongSlow[], htfFast[], htfSlow[], htfTrend[], htfClose[], macdMain[], macdSignal[], rsi[], atr[], adx[], closePrices[];
+   long tickVolume[];
+   ArraySetAsSeries(fast, true);
+   ArraySetAsSeries(slow, true);
+   ArraySetAsSeries(trend, true);
+   ArraySetAsSeries(strongFast, true);
+   ArraySetAsSeries(strongSlow, true);
+   ArraySetAsSeries(htfFast, true);
+   ArraySetAsSeries(htfSlow, true);
+   ArraySetAsSeries(htfTrend, true);
+   ArraySetAsSeries(htfClose, true);
+   ArraySetAsSeries(macdMain, true);
+   ArraySetAsSeries(macdSignal, true);
+   ArraySetAsSeries(rsi, true);
+   ArraySetAsSeries(atr, true);
+   ArraySetAsSeries(adx, true);
+   ArraySetAsSeries(closePrices, true);
+   ArraySetAsSeries(tickVolume, true);
+
+   int fastCopied = CopyBuffer(fastEmaHandle, 0, 0, 3, fast);
+   int slowCopied = CopyBuffer(slowEmaHandle, 0, 0, 3, slow);
+   int trendCopied = CopyBuffer(trendEmaHandle, 0, 0, 3, trend);
+   int strongFastCopied = CopyBuffer(strongFastEmaHandle, 0, 0, 3, strongFast);
+   int strongSlowCopied = CopyBuffer(strongSlowEmaHandle, 0, 0, 3, strongSlow);
+   bool needsHtf = UseHigherTimeframe || InpUseHtfTrendFilter;
+   int htfFastCopied = (needsHtf && htfFastEmaHandle != INVALID_HANDLE) ? CopyBuffer(htfFastEmaHandle, 0, 0, 3, htfFast) : 0;
+   int htfSlowCopied = (needsHtf && htfSlowEmaHandle != INVALID_HANDLE) ? CopyBuffer(htfSlowEmaHandle, 0, 0, 3, htfSlow) : 0;
+   int htfCopied = (needsHtf && htfTrendEmaHandle != INVALID_HANDLE) ? CopyBuffer(htfTrendEmaHandle, 0, 0, 3, htfTrend) : 0;
+   int htfCloseCopied = needsHtf ? CopyClose(_Symbol, HigherTimeframe, 0, 3, htfClose) : 0;
+   int macdMainCopied = CopyBuffer(macdHandle, 0, 0, 3, macdMain);
+   int macdSignalCopied = CopyBuffer(macdHandle, 1, 0, 3, macdSignal);
+   int rsiCopied = CopyBuffer(rsiHandle, 0, 0, 3, rsi);
+   int atrCopied = CopyBuffer(atrHandle, 0, 0, 2, atr);
+   int adxCopied = CopyBuffer(adxHandle, 0, 0, 2, adx);
+   int closeCopied = CopyClose(_Symbol, _Period, 0, 3, closePrices);
+   int volumeCopied = CopyTickVolume(_Symbol, _Period, 0, 3, tickVolume);
+
+   if(fastCopied < 3 || slowCopied < 3 || trendCopied < 3 ||
+      strongFastCopied < 3 || strongSlowCopied < 3 ||
+      macdMainCopied < 3 || macdSignalCopied < 3 ||
+      rsiCopied < 3 || atrCopied < 2 || adxCopied < 2 ||
+      closeCopied < 3 || volumeCopied < 3)
+   {
+      PrintFormat("Data unavailable: fast=%d slow=%d trend=%d strongFast=%d strongSlow=%d htfFast=%d htfSlow=%d htf=%d htfClose=%d macdMain=%d macdSignal=%d rsi=%d atr=%d adx=%d close=%d volume=%d",
+                  fastCopied, slowCopied, trendCopied, strongFastCopied, strongSlowCopied,
+                  htfFastCopied, htfSlowCopied, htfCopied, htfCloseCopied, macdMainCopied, macdSignalCopied,
+                  rsiCopied, atrCopied, adxCopied, closeCopied, volumeCopied);
+      return;
+   }
+
+   bool htfReady = needsHtf && htfCopied >= 3 && htfCloseCopied >= 3 &&
+                   htfTrend[1] != EMPTY_VALUE && htfTrend[2] != EMPTY_VALUE;
+   double trendValue = trend[1];
+   if(!htfReady && needsHtf && RequireHigherTimeframeData)
+   {
+      LogSkip("higher timeframe trend data unavailable");
+      return;
+   }
+
+   double closePrice = closePrices[1];
+   double atrValue = atr[1];
+   if(atrValue <= 0.0)
+   {
+      LogSkip("ATR invalid");
+      return;
+   }
+
+   bool buyMaDirection = fast[1] > slow[1];
+   bool sellMaDirection = fast[1] < slow[1];
+   bool buyCross = fast[2] <= slow[2] && buyMaDirection;
+   bool sellCross = fast[2] >= slow[2] && sellMaDirection;
+   bool buyContinuation = UseMaContinuationEntry && buyMaDirection && closePrice > fast[1];
+   bool sellContinuation = UseMaContinuationEntry && sellMaDirection && closePrice < fast[1];
+   bool buyCrossScore = buyCross || buyContinuation;
+   bool sellCrossScore = sellCross || sellContinuation;
+   bool effectiveRequireMaCross = RequireFreshCross || RequireFreshMaCross;
+   bool buyMaOk = !InpUseMaFilter || (buyMaDirection && (!effectiveRequireMaCross || buyCross));
+   bool sellMaOk = !InpUseMaFilter || (sellMaDirection && (!effectiveRequireMaCross || sellCross));
+   double emaSeparation = MathAbs(fast[1] - slow[1]);
+   double minEmaSeparation = atrValue * MinEmaSeparationAtr;
+   bool rangeOk = !UseEmaSeparationFilter || emaSeparation >= minEmaSeparation;
+   bool trendSlopeUp = trend[1] > trend[2];
+   bool trendSlopeDown = trend[1] < trend[2];
+   bool buyPriceVsTrendOk = closePrice > trendValue;
+   bool sellPriceVsTrendOk = closePrice < trendValue;
+   bool buyTrend = !InpUseTrendFilter || (trendSlopeUp && (!RequirePriceVsTrendEma || buyPriceVsTrendOk));
+   bool sellTrend = !InpUseTrendFilter || (trendSlopeDown && (!RequirePriceVsTrendEma || sellPriceVsTrendOk));
+   bool htfSlopeUp = htfReady && htfTrend[1] > htfTrend[2];
+   bool htfSlopeDown = htfReady && htfTrend[1] < htfTrend[2];
+   bool htfCloseAbove = htfReady && htfClose[1] > htfTrend[1];
+   bool htfCloseBelow = htfReady && htfClose[1] < htfTrend[1];
+   bool buyHtfTrend = !InpUseHtfTrendFilter || (htfReady && htfSlopeUp && (!RequirePriceVsTrendEma || htfCloseAbove));
+   bool sellHtfTrend = !InpUseHtfTrendFilter || (htfReady && htfSlopeDown && (!RequirePriceVsTrendEma || htfCloseBelow));
+   double macdHistogram = macdMain[1] - macdSignal[1];
+   double previousMacdHistogram = macdMain[2] - macdSignal[2];
+   double minMacdHistogram = atrValue * MinMacdHistogramAtr;
+   bool buyMacdCross = macdHistogram > 0.0 && previousMacdHistogram <= 0.0;
+   bool sellMacdCross = macdHistogram < 0.0 && previousMacdHistogram >= 0.0;
+   bool effectiveRequireMacdCross = RequireFreshMacdCross && !UseMacdHistogramContinuation;
+   bool buyMacd = !InpUseMacdFilter || (macdHistogram > minMacdHistogram && (!effectiveRequireMacdCross || buyMacdCross));
+   bool sellMacd = !InpUseMacdFilter || (macdHistogram < -minMacdHistogram && (!effectiveRequireMacdCross || sellMacdCross));
+   bool buyRsi = !UseRsiFilter || (rsi[1] >= LongRsiMinimum && rsi[1] <= LongRsiMaximum);
+   bool sellRsi = !UseRsiFilter || (rsi[1] <= ShortRsiMaximum && rsi[1] >= ShortRsiMinimum);
+   double atrPoints = atrValue / _Point;
+   double effectiveMinAtrPoints = EffectiveMinAtrPoints(closePrice);
+   double effectiveMaxAtrPoints = EffectiveMaxAtrPoints(closePrice);
+   bool atrVolatilityOk = !InpUseAtrVolatilityFilter || (atrPoints >= effectiveMinAtrPoints && atrPoints <= effectiveMaxAtrPoints);
+   bool buyMomentum = closePrices[1] > closePrices[2] && macdHistogram > previousMacdHistogram;
+   bool sellMomentum = closePrices[1] < closePrices[2] && macdHistogram < previousMacdHistogram;
+   bool buyVolume = tickVolume[1] > tickVolume[2] && buyMomentum;
+   bool sellVolume = tickVolume[1] > tickVolume[2] && sellMomentum;
+   double strongEmaSeparationPoints = MathAbs(strongFast[1] - strongSlow[1]) / _Point;
+   double effectiveStrongTrendEmaSeparationPoints = EffectiveStrongTrendEmaSeparationPoints(closePrice);
+   bool buyStrongEma = strongFast[1] > strongSlow[1] && strongEmaSeparationPoints >= effectiveStrongTrendEmaSeparationPoints;
+   bool sellStrongEma = strongFast[1] < strongSlow[1] && strongEmaSeparationPoints >= effectiveStrongTrendEmaSeparationPoints;
+   bool adxEntryOk = !InpUseAdxEntryFilter || adx[1] >= InpMinEntryAdx;
+   bool adxEntryFinalOk = !RequireAdxEntryFinal || adxEntryOk;
+   bool buyStrongTrend = InpUseStrongTrendMode && (adx[1] >= StrongTrendAdxMinimum || buyStrongEma);
+   bool sellStrongTrend = InpUseStrongTrendMode && (adx[1] >= StrongTrendAdxMinimum || sellStrongEma);
+
+   bool buyCrossOk = !RequireFreshCross || buyCross;
+   bool sellCrossOk = !RequireFreshCross || sellCross;
+   bool buyCrossFinalOk = !RequireCrossFinal || buyCrossOk;
+   bool sellCrossFinalOk = !RequireCrossFinal || sellCrossOk;
+   bool buyMacdOk = !RequireMacdConfirm || buyMacd;
+   bool sellMacdOk = !RequireMacdConfirm || sellMacd;
+   bool buyMacdFinalOk = !RequireMacdFinal || buyMacdOk;
+   bool sellMacdFinalOk = !RequireMacdFinal || sellMacdOk;
+
+   bool buyRsiScore = buyStrongTrend ? true : buyRsi;
+   bool sellRsiScore = sellStrongTrend ? true : sellRsi;
+   bool buyRangeScore = buyStrongTrend ? true : rangeOk;
+   bool sellRangeScore = sellStrongTrend ? true : rangeOk;
+
+   bool buyMacdScore = !InpScoreMacdFilter || buyMacdOk;
+   bool sellMacdScore = !InpScoreMacdFilter || sellMacdOk;
+   bool atrScore = !InpScoreAtrFilter || atrVolatilityOk;
+
+   int buyScore = SignalScore(buyMaOk, buyCrossScore, buyTrend, buyMacdScore, buyRsiScore,
+                              atrScore, buyRangeScore, buyHtfTrend, buyVolume, buyMomentum);
+   int sellScore = SignalScore(sellMaOk, sellCrossScore, sellTrend, sellMacdScore, sellRsiScore,
+                               atrScore, sellRangeScore, sellHtfTrend, sellVolume, sellMomentum);
+
+   bool buyLegacySignal = buyMaOk && buyCrossOk && buyTrend && buyHtfTrend && rangeOk && buyMacdOk && buyRsi && atrScore;
+   bool sellLegacySignal = sellMaOk && sellCrossOk && sellTrend && sellHtfTrend && rangeOk && sellMacdOk && sellRsi && atrScore;
+   bool buyScoreAccepted = InpUseSignalScoring ? (buyScore >= InpMinSignalScore) : buyLegacySignal;
+   bool sellScoreAccepted = InpUseSignalScoring ? (sellScore >= InpMinSignalScore) : sellLegacySignal;
+   bool buyRsiMomentumOk = !BlockBuyWhenRsiBelow50 || rsi[1] >= 50.0;
+   bool sellRsiMomentumOk = !BlockSellWhenRsiAbove50 || rsi[1] <= SellMaxRsi;
+   bool buyOppositeTrendOk = !RequireOppositeTrendBlock || !sellTrend;
+   bool sellOppositeTrendOk = !RequireOppositeTrendBlock || !buyTrend;
+   bool buyDirectionFinalOk = buyTrend && buyMaDirection && buyOppositeTrendOk && buyRsiMomentumOk;
+   bool sellDirectionFinalOk = sellTrend && sellMaDirection && sellOppositeTrendOk && sellRsiMomentumOk;
+   bool buyScoreSignal = buyScoreAccepted && buyDirectionFinalOk && buyMacdFinalOk && buyCrossFinalOk && adxEntryFinalOk;
+   bool sellScoreSignal = sellScoreAccepted && sellDirectionFinalOk && sellMacdFinalOk && sellCrossFinalOk && adxEntryFinalOk;
+   bool buyStrongSignal = InpUseStrongTrendMode && buyStrongTrend &&
+                          buyMaOk && buyCrossScore && buyTrend && buyMacdOk;
+   bool sellStrongSignal = InpUseStrongTrendMode && sellStrongTrend &&
+                           sellMaOk && sellCrossScore && sellTrend && sellMacdOk;
+
+   bool bullishCandle = closePrices[1] > closePrices[2];
+   bool buyReversalRsiRecovery = rsi[1] > rsi[2] &&
+                                 (rsi[1] >= InpBuyReversalRsiLevel || rsi[2] <= InpBuyReversalOversoldRsi);
+   bool buyReversalMacdImproving = macdHistogram > previousMacdHistogram;
+   bool buyReversalPriceAction = closePrice > fast[1] || bullishCandle;
+   bool buyReversalMaBase = closePrice > fast[1] || fast[1] > fast[2];
+   bool buyReversalScoreTrend = closePrice > fast[1] || buyTrend;
+   bool buyReversalHtfBiasOk = true;
+   int buyReversalScore = SignalScore(buyReversalMaBase,
+                                      buyReversalPriceAction,
+                                      buyReversalScoreTrend,
+                                      buyReversalMacdImproving,
+                                      buyReversalRsiRecovery,
+                                      atrScore,
+                                      buyRangeScore,
+                                      buyReversalHtfBiasOk,
+                                      buyVolume,
+                                      buyMomentum || bullishCandle);
+   bool buyReversalSignal = InpUseBuyReversalMode &&
+                            buyReversalScore >= InpBuyReversalMinScore &&
+                            buyReversalRsiRecovery &&
+                            buyReversalMacdImproving &&
+                            buyReversalPriceAction;
+   bool buyBounceSignal = AllowBuyBounce &&
+                          rsi[1] >= BuyMinRsi &&
+                          closePrice > fast[1] &&
+                          macdMain[1] > macdSignal[1];
+
+   bool rawBuySignal = AllowLongTrades && adxEntryFinalOk && (buyScoreSignal || buyStrongSignal || buyReversalSignal || buyBounceSignal);
+   bool rawSellSignal = AllowShortTrades && sellDirectionFinalOk && adxEntryFinalOk && (sellScoreSignal || sellStrongSignal);
+   bool buySignal = rawBuySignal;
+   bool sellSignal = rawSellSignal;
+   int buyDecisionScore = buyReversalSignal ? MathMax(buyScore, buyReversalScore) : buyScore;
+   int sellDecisionScore = sellScore;
+   bool conflictBlocked = false;
+   string conflictDecision = "none";
+
+   if(InpUseSignalConflictFilter && RequireSignalConflictFinal)
+   {
+      if(buySignal && sellSignal)
+      {
+         if(buyDecisionScore >= sellDecisionScore + InpMinSignalScoreAdvantage)
+         {
+            sellSignal = false;
+            conflictDecision = "BUY_ADVANTAGE";
+         }
+         else if(sellDecisionScore >= buyDecisionScore + InpMinSignalScoreAdvantage)
+         {
+            buySignal = false;
+            conflictDecision = "SELL_ADVANTAGE";
+         }
+         else
+         {
+            buySignal = false;
+            sellSignal = false;
+            conflictBlocked = true;
+            conflictDecision = "BLOCKED_TIE";
+         }
+      }
+      else if(buySignal && sellDecisionScore >= InpMinSignalScore &&
+              buyDecisionScore < sellDecisionScore + InpMinSignalScoreAdvantage)
+      {
+         buySignal = false;
+         conflictBlocked = true;
+         conflictDecision = "BUY_BLOCKED_BY_SELL_SCORE";
+      }
+      else if(sellSignal && buyDecisionScore >= InpMinSignalScore &&
+              sellDecisionScore < buyDecisionScore + InpMinSignalScoreAdvantage)
+      {
+         sellSignal = false;
+         conflictBlocked = true;
+         conflictDecision = "SELL_BLOCKED_BY_BUY_SCORE";
+      }
+   }
+
+   if(DebugLogs)
+   {
+      PrintFormat("BUY REVERSAL | enabled=%s score=%d/10 min=%d accepted=%s rsiRecovery=%s rsi=%.2f prevRsi=%.2f macdImproving=%s hist=%.5f prevHist=%.5f priceAction=%s closeAboveFast=%s bullishCandle=%s normalBuy=%s strongBuy=%s htfTrendRaw=%s trendRaw=%s",
+                  BoolToString(InpUseBuyReversalMode),
+                  buyReversalScore,
+                  InpBuyReversalMinScore,
+                  BoolToString(buyReversalSignal),
+                  BoolToString(buyReversalRsiRecovery),
+                  rsi[1],
+                  rsi[2],
+                  BoolToString(buyReversalMacdImproving),
+                  macdHistogram,
+                  previousMacdHistogram,
+                  BoolToString(buyReversalPriceAction),
+                  BoolToString(closePrice > fast[1]),
+                  BoolToString(bullishCandle),
+                  BoolToString(buyScoreSignal),
+                  BoolToString(buyStrongSignal),
+                  BoolToString(buyHtfTrend),
+                  BoolToString(buyTrend));
+
+      PrintFormat("BUY BOUNCE | enabled=%s accepted=%s minRsi=%.2f rsi=%.2f closeAboveFast=%s close=%.5f fast=%.5f macdAboveSignal=%s macd=%.5f signal=%.5f normalBuy=%s strongBuy=%s reversalBuy=%s",
+                  BoolToString(AllowBuyBounce),
+                  BoolToString(buyBounceSignal),
+                  BuyMinRsi,
+                  rsi[1],
+                  BoolToString(closePrice > fast[1]),
+                  closePrice,
+                  fast[1],
+                  BoolToString(macdMain[1] > macdSignal[1]),
+                  macdMain[1],
+                  macdSignal[1],
+                  BoolToString(buyScoreSignal),
+                  BoolToString(buyStrongSignal),
+                  BoolToString(buyReversalSignal));
+
+      PrintFormat("CONFLICT CHECK | enabled=%s requireFinal=%s rawBuy=%s rawSell=%s finalBuy=%s finalSell=%s blocked=%s decision=%s buyDecisionScore=%d sellDecisionScore=%d minAdvantage=%d",
+                  BoolToString(InpUseSignalConflictFilter),
+                  BoolToString(RequireSignalConflictFinal),
+                  BoolToString(rawBuySignal),
+                  BoolToString(rawSellSignal),
+                  BoolToString(buySignal),
+                  BoolToString(sellSignal),
+                  BoolToString(conflictBlocked),
+                  conflictDecision,
+                  buyDecisionScore,
+                  sellDecisionScore,
+                  InpMinSignalScoreAdvantage);
+
+      PrintFormat("ADX ENTRY FILTER | enabled=%s requireFinal=%s min=%.2f adx=%.2f rawOk=%s finalOk=%s",
+                  BoolToString(InpUseAdxEntryFilter),
+                  BoolToString(RequireAdxEntryFinal),
+                  InpMinEntryAdx,
+                  adx[1],
+                  BoolToString(adxEntryOk),
+                  BoolToString(adxEntryFinalOk));
+
+      PrintFormat("CROSS DEBUG | requireFreshCross=%s requireFreshMaCross=%s effectiveRequireMaCross=%s continuationEnabled=%s buyDirection=%s sellDirection=%s buyFreshCross=%s sellFreshCross=%s buyContinuation=%s sellContinuation=%s buyCrossScore=%s sellCrossScore=%s close=%.5f fast=%.5f slow=%.5f prevFast=%.5f prevSlow=%.5f",
+                  BoolToString(RequireFreshCross),
+                  BoolToString(RequireFreshMaCross),
+                  BoolToString(effectiveRequireMaCross),
+                  BoolToString(UseMaContinuationEntry),
+                  BoolToString(buyMaDirection),
+                  BoolToString(sellMaDirection),
+                  BoolToString(buyCross),
+                  BoolToString(sellCross),
+                  BoolToString(buyContinuation),
+                  BoolToString(sellContinuation),
+                  BoolToString(buyCrossScore),
+                  BoolToString(sellCrossScore),
+                  closePrice,
+                  fast[1],
+                  slow[1],
+                  fast[2],
+                  slow[2]);
+
+      PrintFormat("HTF DEBUG | tf=%s ready=%s useHtf=%s requireData=%s copiedFast=%d copiedSlow=%d copiedTrend=%d copiedClose=%d htfFast=%.5f htfSlow=%.5f htfTrend=%.5f prevHtfTrend=%.5f htfClose=%.5f htfFastAboveSlow=%s htfSlopeUp=%s htfSlopeDown=%s htfCloseAbove=%s htfCloseBelow=%s buyHTF=%s sellHTF=%s strictTrend=%s",
+                  EnumToString(HigherTimeframe),
+                  BoolToString(htfReady),
+                  BoolToString(InpUseHtfTrendFilter),
+                  BoolToString(RequireHigherTimeframeData),
+                  htfFastCopied,
+                  htfSlowCopied,
+                  htfCopied,
+                  htfCloseCopied,
+                  htfFastCopied >= 2 ? htfFast[1] : 0.0,
+                  htfSlowCopied >= 2 ? htfSlow[1] : 0.0,
+                  htfReady ? htfTrend[1] : 0.0,
+                  htfReady ? htfTrend[2] : 0.0,
+                  htfCloseCopied >= 2 ? htfClose[1] : 0.0,
+                  BoolToString(htfFastCopied >= 2 && htfSlowCopied >= 2 && htfFast[1] > htfSlow[1]),
+                  BoolToString(htfSlopeUp),
+                  BoolToString(htfSlopeDown),
+                  BoolToString(htfCloseAbove),
+                  BoolToString(htfCloseBelow),
+                  BoolToString(buyHtfTrend),
+                  BoolToString(sellHtfTrend),
+                  BoolToString(RequirePriceVsTrendEma));
+
+      PrintFormat("BUY SCORE | score=%d/10 min=%d accepted=%s routed=%s adxEntry=%s strongMode=%s strongAdx=%s strongEma=%s ma=%s cross=%s trend=%s macdScore=%s macdRaw=%s rsiScore=%s atrScore=%s atrRaw=%s rangeScore=%s htf=%s volume=%s momentum=%s adx=%.2f ema50_200_pts=%.1f",
+                  buyScore,
+                  InpMinSignalScore,
+                  BoolToString(buyScoreAccepted),
+                  BoolToString(buySignal),
+                  BoolToString(adxEntryOk),
+                  BoolToString(buyStrongSignal),
+                  BoolToString(adx[1] >= StrongTrendAdxMinimum),
+                  BoolToString(buyStrongEma),
+                  BoolToString(buyMaOk),
+                  BoolToString(buyCrossScore),
+                  BoolToString(buyTrend),
+                  BoolToString(buyMacdScore),
+                  BoolToString(buyMacdOk),
+                  BoolToString(buyRsiScore),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk),
+                  BoolToString(buyRangeScore),
+                  BoolToString(buyHtfTrend),
+                  BoolToString(buyVolume),
+                  BoolToString(buyMomentum),
+                  adx[1],
+                  strongEmaSeparationPoints);
+
+      PrintFormat("SELL SCORE | score=%d/10 min=%d accepted=%s routed=%s adxEntry=%s strongMode=%s strongAdx=%s strongEma=%s ma=%s cross=%s trend=%s macdScore=%s macdRaw=%s rsiScore=%s atrScore=%s atrRaw=%s rangeScore=%s htf=%s volume=%s momentum=%s adx=%.2f ema50_200_pts=%.1f",
+                  sellScore,
+                  InpMinSignalScore,
+                  BoolToString(sellScoreAccepted),
+                  BoolToString(sellSignal),
+                  BoolToString(adxEntryOk),
+                  BoolToString(sellStrongSignal),
+                  BoolToString(adx[1] >= StrongTrendAdxMinimum),
+                  BoolToString(sellStrongEma),
+                  BoolToString(sellMaOk),
+                  BoolToString(sellCrossScore),
+                  BoolToString(sellTrend),
+                  BoolToString(sellMacdScore),
+                  BoolToString(sellMacdOk),
+                  BoolToString(sellRsiScore),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk),
+                  BoolToString(sellRangeScore),
+                  BoolToString(sellHtfTrend),
+                  BoolToString(sellVolume),
+                  BoolToString(sellMomentum),
+                  adx[1],
+                  strongEmaSeparationPoints);
+
+      PrintFormat("BUY %s | allow=%s ma=%s cross=%s trend=%s htfTrend=%s range=%s macd=%s rsi=%s atrScore=%s atrRaw=%s close=%.5f htfClose=%.5f htfEma=%.5f htfSlope=%s atrPts=%.1f emaSepAtr=%.2f",
+                  buySignal ? "ACCEPTED" : "REJECTED",
+                  BoolToString(AllowLongTrades),
+                  BoolToString(buyMaOk),
+                  BoolToString(buyCrossScore),
+                  BoolToString(buyTrend),
+                  BoolToString(buyHtfTrend),
+                  BoolToString(buyRangeScore),
+                  BoolToString(buyMacdOk),
+                  BoolToString(buyRsiScore),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk),
+                  closePrice,
+                  htfReady ? htfClose[1] : 0.0,
+                  htfReady ? htfTrend[1] : 0.0,
+                  BoolToString(htfSlopeUp),
+                  atrPoints,
+                  atrValue > 0.0 ? emaSeparation / atrValue : 0.0);
+
+      PrintFormat("SELL %s | allow=%s ma=%s cross=%s trend=%s htfTrend=%s range=%s macd=%s rsi=%s atrScore=%s atrRaw=%s close=%.5f htfClose=%.5f htfEma=%.5f htfSlope=%s atrPts=%.1f emaSepAtr=%.2f",
+                  sellSignal ? "ACCEPTED" : "REJECTED",
+                  BoolToString(AllowShortTrades),
+                  BoolToString(sellMaOk),
+                  BoolToString(sellCrossScore),
+                  BoolToString(sellTrend),
+                  BoolToString(sellHtfTrend),
+                  BoolToString(sellRangeScore),
+                  BoolToString(sellMacdOk),
+                  BoolToString(sellRsiScore),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk),
+                  closePrice,
+                  htfReady ? htfClose[1] : 0.0,
+                  htfReady ? htfTrend[1] : 0.0,
+                  BoolToString(htfSlopeDown),
+                  atrPoints,
+                  atrValue > 0.0 ? emaSeparation / atrValue : 0.0);
+
+      PrintFormat("ADAPTIVE FILTERS | symbol=%s autoScale=%s point=%.8f close=%.5f atrPts=%.1f minAtrPts=%.1f maxAtrPts=%.1f strongEmaSepPts=%.1f minStrongEmaSepPts=%.1f",
+                  _Symbol,
+                  BoolToString(AutoScalePointFiltersToSymbol),
+                  _Point,
+                  closePrice,
+                  atrPoints,
+                  effectiveMinAtrPoints,
+                  effectiveMaxAtrPoints,
+                  strongEmaSeparationPoints,
+                  effectiveStrongTrendEmaSeparationPoints);
+
+      PrintFormat("SELL FINAL CHECK | allow=%s ma=%s directionFinal=%s requireOppositeTrendBlock=%s oppositeBuyTrendOk=%s buyTrend=%s blockRsiAbove50=%s sellMaxRsi=%.2f sellRsiMomentum=%s requireCrossFinal=%s crossRaw=%s crossOk=%s crossFinal=%s trend=%s range=%s requireMacdFinal=%s macdFinal=%s macdRaw=%s requireAdxFinal=%s adxRaw=%s adxFinal=%s rsi=%.2f useAtr=%s atrScore=%s atrRaw=%s scoreAccepted=%s result=%s",
+                  BoolToString(AllowShortTrades),
+                  BoolToString(sellMaOk),
+                  BoolToString(sellDirectionFinalOk),
+                  BoolToString(RequireOppositeTrendBlock),
+                  BoolToString(sellOppositeTrendOk),
+                  BoolToString(buyTrend),
+                  BoolToString(BlockSellWhenRsiAbove50),
+                  SellMaxRsi,
+                  BoolToString(sellRsiMomentumOk),
+                  BoolToString(RequireCrossFinal),
+                  BoolToString(sellCross),
+                  BoolToString(sellCrossOk),
+                  BoolToString(sellCrossFinalOk),
+                  BoolToString(sellTrend),
+                  BoolToString(rangeOk),
+                  BoolToString(RequireMacdFinal),
+                  BoolToString(sellMacdFinalOk),
+                  BoolToString(sellMacdOk),
+                  BoolToString(RequireAdxEntryFinal),
+                  BoolToString(adxEntryOk),
+                  BoolToString(adxEntryFinalOk),
+                  rsi[1],
+                  BoolToString(InpUseAtrVolatilityFilter),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk),
+                  BoolToString(sellScoreAccepted),
+                  BoolToString(sellSignal));
+
+      PrintFormat("SIGNAL ROUTE | buy=%s sell=%s action=%s rawBuy=%s rawSell=%s adxEntryRaw=%s adxEntryFinal=%s conflictEnabled=%s conflictFinal=%s buyScoreAccepted=%s sellScoreAccepted=%s buyScore=%d buyReversalScore=%d sellScore=%d buyDecisionScore=%d sellDecisionScore=%d conflict=%s normalBuy=%s reversalBuy=%s bounceBuy=%s strongBuy=%s strongSell=%s",
+                  BoolToString(buySignal),
+                  BoolToString(sellSignal),
+                  buySignal ? "BUY" : (sellSignal ? "SELL" : "NONE"),
+                  BoolToString(rawBuySignal),
+                  BoolToString(rawSellSignal),
+                  BoolToString(adxEntryOk),
+                  BoolToString(adxEntryFinalOk),
+                  BoolToString(InpUseSignalConflictFilter),
+                  BoolToString(RequireSignalConflictFinal),
+                  BoolToString(buyScoreAccepted),
+                  BoolToString(sellScoreAccepted),
+                  buyScore,
+                  buyReversalScore,
+                  sellScore,
+                  buyDecisionScore,
+                  sellDecisionScore,
+                  conflictDecision,
+                  BoolToString(buyScoreSignal),
+                  BoolToString(buyReversalSignal),
+                  BoolToString(buyBounceSignal),
+                  BoolToString(buyStrongSignal),
+                  BoolToString(sellStrongSignal));
+
+      if(!sellSignal)
+      {
+         PrintFormat("SELL BLOCKERS | allowSell=%s useMaFilter=%s sellMa=%s sellDirection=%s sellCross=%s crossOk=%s sellTrend=%s useRangeFilter=%s range=%s useMacdFilter=%s sellMacd=%s macdOk=%s sellRsi=%s rsi=%.2f rsiRange=%.2f-%.2f useAtr=%s atrScore=%s atrRaw=%s fast=%.5f slow=%.5f hist=%.5f minHist=%.5f",
+                     BoolToString(AllowShortTrades),
+                     BoolToString(InpUseMaFilter),
+                     BoolToString(sellMaOk),
+                     BoolToString(sellMaDirection),
+                     BoolToString(sellCross),
+                     BoolToString(sellCrossOk),
+                     BoolToString(sellTrend),
+                     BoolToString(UseEmaSeparationFilter),
+                     BoolToString(rangeOk),
+                     BoolToString(InpUseMacdFilter),
+                     BoolToString(sellMacd),
+                     BoolToString(sellMacdOk),
+                     BoolToString(sellRsi),
+                     rsi[1],
+                     ShortRsiMinimum,
+                     ShortRsiMaximum,
+                     BoolToString(InpUseAtrVolatilityFilter),
+                     BoolToString(atrScore),
+                     BoolToString(atrVolatilityOk),
+                     fast[1],
+                     slow[1],
+                     macdHistogram,
+                     minMacdHistogram);
+      }
+
+      PrintFormat("FINAL DEBUG | allowBuy=%s buyMa=%s buyDirection=%s buyRsiMomentum=%s buyCross=%s crossOk=%s crossFinal=%s buyTrend=%s oppositeSellTrendOk=%s range=%s buyMacd=%s macdOk=%s macdFinal=%s buyRsi=%s atrScore=%s atrRaw=%s finalBuy=%s | allowSell=%s sellMa=%s sellDirection=%s sellRsiMomentum=%s sellCross=%s crossOk=%s crossFinal=%s sellTrend=%s oppositeBuyTrendOk=%s sellMacd=%s macdOk=%s macdFinal=%s sellRsi=%s finalSell=%s",
+                  BoolToString(AllowLongTrades),
+                  BoolToString(buyMaOk),
+                  BoolToString(buyDirectionFinalOk),
+                  BoolToString(buyRsiMomentumOk),
+                  BoolToString(buyCross),
+                  BoolToString(buyCrossOk),
+                  BoolToString(buyCrossFinalOk),
+                  BoolToString(buyTrend),
+                  BoolToString(buyOppositeTrendOk),
+                  BoolToString(rangeOk),
+                  BoolToString(buyMacd),
+                  BoolToString(buyMacdOk),
+                  BoolToString(buyMacdFinalOk),
+                  BoolToString(buyRsi),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk),
+                  BoolToString(buySignal),
+                  BoolToString(AllowShortTrades),
+                  BoolToString(sellMaOk),
+                  BoolToString(sellDirectionFinalOk),
+                  BoolToString(sellRsiMomentumOk),
+                  BoolToString(sellCross),
+                  BoolToString(sellCrossOk),
+                  BoolToString(sellCrossFinalOk),
+                  BoolToString(sellTrend),
+                  BoolToString(sellOppositeTrendOk),
+                  BoolToString(sellMacd),
+                  BoolToString(sellMacdOk),
+                  BoolToString(sellMacdFinalOk),
+                  BoolToString(sellRsi),
+                  BoolToString(sellSignal));
+
+      PrintFormat("FINAL SIGNAL | buy=%s sell=%s allowBuy=%s allowSell=%s buyMa=%s sellMa=%s buyDirection=%s sellDirection=%s buyCrossOk=%s sellCrossOk=%s buyCrossFinal=%s sellCrossFinal=%s buyTrend=%s sellTrend=%s range=%s buyMacdOk=%s sellMacdOk=%s buyRsi=%s sellRsi=%s atrScore=%s atrRaw=%s",
+                  BoolToString(buySignal), BoolToString(sellSignal),
+                  BoolToString(AllowLongTrades), BoolToString(AllowShortTrades),
+                  BoolToString(buyMaOk), BoolToString(sellMaOk),
+                  BoolToString(buyDirectionFinalOk), BoolToString(sellDirectionFinalOk),
+                  BoolToString(buyCrossOk), BoolToString(sellCrossOk),
+                  BoolToString(buyCrossFinalOk), BoolToString(sellCrossFinalOk),
+                  BoolToString(buyTrend), BoolToString(sellTrend),
+                  BoolToString(rangeOk),
+                  BoolToString(buyMacdOk), BoolToString(sellMacdOk),
+                  BoolToString(buyRsi), BoolToString(sellRsi),
+                  BoolToString(atrScore),
+                  BoolToString(atrVolatilityOk));
+
+      PrintFormat("ENTRY CHECK | buy=%s sell=%s fast=%.5f slow=%.5f trend=%.5f htfReady=%s rsi=%.2f macd=%.5f sig=%.5f hist=%.5f atr=%.5f atrPts=%.1f adx=%.2f adxEntry=%s spread=%d tradesToday=%d",
+                  BoolToString(buySignal), BoolToString(sellSignal),
+                  fast[1], slow[1], trendValue, BoolToString(htfReady), rsi[1], macdMain[1],
+                  macdSignal[1], macdHistogram, atrValue, atrPoints,
+                  adx[1],
+                  BoolToString(adxEntryOk),
+                  (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD), tradesToday);
+      PrintFormat("FILTERS | useMaFilter=%s buyMa=%s sellMa=%s buyCross=%s sellCross=%s buyTrend=%s sellTrend=%s strictTrend=%s trendSlopeUp=%s trendSlopeDown=%s priceVsTrend=%s buyPriceTrend=%s sellPriceTrend=%s useRangeFilter=%s rangeOk=%s emaSep=%.5f minSep=%.5f useMacdFilter=%s buyMacd=%s sellMacd=%s macdOkBuy=%s macdOkSell=%s minHist=%.5f buyRsi=%s sellRsi=%s useAtr=%s atrVol=%s requireFreshCross=%s requireMaCross=%s effectiveMaCross=%s continuation=%s requireMacdConfirm=%s requireMacdCross=%s effectiveMacdCross=%s macdContinuation=%s",
+                  BoolToString(InpUseMaFilter),
+                  BoolToString(buyMaOk), BoolToString(sellMaOk),
+                  BoolToString(buyCross), BoolToString(sellCross),
+                  BoolToString(buyTrend), BoolToString(sellTrend),
+                  BoolToString(RequirePriceVsTrendEma),
+                  BoolToString(trendSlopeUp),
+                  BoolToString(trendSlopeDown),
+                  closePrice > trendValue ? "above" : (closePrice < trendValue ? "below" : "equal"),
+                  BoolToString(buyPriceVsTrendOk),
+                  BoolToString(sellPriceVsTrendOk),
+                  BoolToString(UseEmaSeparationFilter),
+                  BoolToString(rangeOk), emaSeparation, minEmaSeparation,
+                  BoolToString(InpUseMacdFilter),
+                  BoolToString(buyMacd), BoolToString(sellMacd),
+                  BoolToString(buyMacdOk), BoolToString(sellMacdOk),
+                  minMacdHistogram,
+                  BoolToString(buyRsi), BoolToString(sellRsi),
+                  BoolToString(InpUseAtrVolatilityFilter),
+                  BoolToString(atrVolatilityOk),
+                  BoolToString(RequireFreshCross),
+                  BoolToString(RequireFreshMaCross),
+                  BoolToString(effectiveRequireMaCross),
+                  BoolToString(UseMaContinuationEntry),
+                  BoolToString(RequireMacdConfirm),
+                  BoolToString(RequireFreshMacdCross),
+                  BoolToString(effectiveRequireMacdCross),
+                  BoolToString(UseMacdHistogramContinuation));
+   }
+
+   if(buySignal)
+      HandleSignal(POSITION_TYPE_BUY, atrValue);
+   else if(sellSignal)
+      HandleSignal(POSITION_TYPE_SELL, atrValue);
+}
+
+void HandleSignal(const long positionType, const double atrValue)
+{
+   int buyCount = CountOwnPositions(POSITION_TYPE_BUY);
+   int sellCount = CountOwnPositions(POSITION_TYPE_SELL);
+   int totalCount = buyCount + sellCount;
+
+   if(DebugLogs)
+      PrintFormat("HANDLE SIGNAL | direction=%s buyCount=%d sellCount=%d total=%d max=%d",
+                  positionType == POSITION_TYPE_BUY ? "BUY" : "SELL",
+                  buyCount, sellCount, totalCount, InpMaxOpenTrades);
+
+   if(positionType == POSITION_TYPE_BUY)
+   {
+      if(IsSameDirectionCooldownActive(POSITION_TYPE_BUY))
+      {
+         LogSkip("BUY blocked after signal: same-direction cooldown active");
+         return;
+      }
+
+      if(InpCloseOppositeOnSignal && sellCount > 0)
+         CloseOwnPositionsByType(POSITION_TYPE_SELL);
+
+      if(CountOwnPositions() < InpMaxOpenTrades)
+         OpenPosition(ORDER_TYPE_BUY, atrValue);
+      else
+         LogSkip("BUY blocked after signal: max open trades reached");
+   }
+   else if(positionType == POSITION_TYPE_SELL)
+   {
+      if(IsSameDirectionCooldownActive(POSITION_TYPE_SELL))
+      {
+         LogSkip("SELL blocked after signal: same-direction cooldown active");
+         return;
+      }
+
+      if(InpCloseOppositeOnSignal && buyCount > 0)
+         CloseOwnPositionsByType(POSITION_TYPE_BUY);
+
+      if(CountOwnPositions() < InpMaxOpenTrades)
+         OpenPosition(ORDER_TYPE_SELL, atrValue);
+      else
+         LogSkip("SELL blocked after signal: max open trades reached");
+   }
+}
+
+void OpenPosition(const ENUM_ORDER_TYPE orderType, const double atrValue)
+{
+   double price = (orderType == ORDER_TYPE_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
+                                                : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double stopDistance = NormalizeStopDistance(atrValue * StopAtrMultiple);
+   double targetDistance = NormalizeStopDistance(stopDistance * RewardRiskRatio);
+   double sl = (orderType == ORDER_TYPE_BUY) ? price - stopDistance : price + stopDistance;
+   double tp = (orderType == ORDER_TYPE_BUY) ? price + targetDistance : price - targetDistance;
+   double lots = CalculateLots(stopDistance, orderType, price);
+
+   sl = NormalizePrice(sl);
+   tp = NormalizePrice(tp);
+
+   if(lots <= 0.0)
+   {
+      LogSkip("lot calculation returned 0");
+      return;
+   }
+
+   if(!HasEnoughMargin(orderType, lots, price))
+      return;
+
+   bool ok = false;
+   if(orderType == ORDER_TYPE_BUY)
+      ok = trade.Buy(lots, _Symbol, 0.0, sl, tp, "MA_MACD_SAFE_BUY");
+   else
+      ok = trade.Sell(lots, _Symbol, 0.0, sl, tp, "MA_MACD_SAFE_SELL");
+
+   if(ok)
+   {
+      lastTradeBarTime = iTime(_Symbol, _Period, 0);
+      if(orderType == ORDER_TYPE_BUY)
+         lastBuyTradeBarTime = lastTradeBarTime;
+      else
+         lastSellTradeBarTime = lastTradeBarTime;
+
+      tradesToday++;
+      PrintFormat("ORDER OPENED | %s lots=%.2f sl=%.5f tp=%.5f risk=%.2f%% tradesToday=%d rr=%.2f",
+                  orderType == ORDER_TYPE_BUY ? "BUY" : "SELL",
+                  lots, sl, tp, RiskPercentPerTrade, tradesToday, RewardRiskRatio);
+   }
+   else
+   {
+      Print("ORDER FAILED | retcode=", trade.ResultRetcode(), " ", trade.ResultRetcodeDescription());
+   }
+}
+
+double NormalizeStopDistance(const double distance)
+{
+   double minDistance = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+   double freezeDistance = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL) * _Point;
+   double required = MathMax(minDistance, freezeDistance);
+   if(required <= 0.0)
+      return distance;
+
+   return MathMax(distance, required + 5.0 * _Point);
+}
+
+double CalculateLots(const double stopDistance, const ENUM_ORDER_TYPE orderType, const double price)
+{
+   double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double rawLots = UseRiskLotSizing ? 0.0 : FixedLots;
+
+   if(UseRiskLotSizing)
+   {
+      double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+      double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+      if(tickSize <= 0.0 || tickValue <= 0.0 || stopDistance <= 0.0)
+      {
+         LogSkip("invalid tick or stop data for risk sizing");
+         rawLots = FixedLots > 0.0 ? FixedLots : minLot;
+      }
+      else
+      {
+         double riskMoney = AccountInfoDouble(ACCOUNT_EQUITY) * RiskPercentPerTrade / 100.0;
+         double lossPerLot = stopDistance / tickSize * tickValue;
+         if(lossPerLot <= 0.0)
+         {
+            LogSkip("invalid loss per lot");
+            rawLots = FixedLots > 0.0 ? FixedLots : minLot;
+         }
+         else
+         {
+            rawLots = riskMoney / lossPerLot;
+         }
+      }
+   }
+
+   if(rawLots <= 0.0)
+      rawLots = minLot;
+
+   rawLots = MathMin(rawLots, MaxLots);
+   double lots = NormalizeLots(rawLots);
+
+   if(DebugLogs)
+      PrintFormat("RISK LOTS | raw=%.4f normalized=%.2f stopDistance=%.5f equity=%.2f",
+                  rawLots, lots, stopDistance, AccountInfoDouble(ACCOUNT_EQUITY));
+
+   return lots;
+}
+
+double NormalizeLots(const double lots)
+{
+   double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+
+   if(step <= 0.0)
+      return 0.0;
+
+   double value = MathFloor(lots / step) * step;
+   value = MathMax(minLot, MathMin(maxLot, value));
+   return NormalizeDouble(value, 2);
+}
+
+bool HasEnoughMargin(const ENUM_ORDER_TYPE orderType, const double lots, const double price)
+{
+   double margin = 0.0;
+   if(!OrderCalcMargin(orderType, _Symbol, lots, price, margin))
+   {
+      Print("OrderCalcMargin failed. Error=", GetLastError());
+      return false;
+   }
+
+   double freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double usedMargin = AccountInfoDouble(ACCOUNT_MARGIN);
+   double projectedMargin = usedMargin + margin;
+   double projectedMarginLevel = projectedMargin > 0.0 ? equity / projectedMargin * 100.0 : 999999.0;
+
+   if(margin > freeMargin)
+   {
+      PrintFormat("Skip trade: insufficient free margin. required=%.2f free=%.2f", margin, freeMargin);
+      return false;
+   }
+
+   if(projectedMarginLevel < MinMarginLevelPercent)
+   {
+      PrintFormat("Skip trade: projected margin level too low. projected=%.2f min=%.2f",
+                  projectedMarginLevel, MinMarginLevelPercent);
+      return false;
+   }
+
+   return true;
+}
+
+void ManageOpenPositions()
+{
+   if(!InpUseBreakEven && !InpUseTrailingStop)
+      return;
+
+   double atr[];
+   ArraySetAsSeries(atr, true);
+   if(CopyBuffer(atrHandle, 0, 0, 2, atr) < 2 || atr[1] <= 0.0)
+      return;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !IsOwnSelectedPosition())
+         continue;
+
+      ManageSelectedPosition(ticket, atr[1]);
+   }
+}
+
+void ManageSelectedPosition(const ulong ticket, const double atrValue)
+{
+   long type = PositionGetInteger(POSITION_TYPE);
+   double currentSl = PositionGetDouble(POSITION_SL);
+   double currentTp = PositionGetDouble(POSITION_TP);
+   double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double initialRisk = EstimateInitialRiskDistance(openPrice, currentSl, currentTp, atrValue);
+   if(initialRisk <= 0.0)
+      return;
+
+   double newSl = currentSl;
+
+   if(type == POSITION_TYPE_BUY)
+   {
+      double openProfitDistance = bid - openPrice;
+
+      if(InpUseBreakEven && openProfitDistance >= initialRisk * InpBreakEvenR)
+         newSl = MathMax(newSl, openPrice + BreakevenPlusPoints * _Point);
+
+      if(InpUseTrailingStop && openProfitDistance >= initialRisk * InpTrailStartR)
+         newSl = MathMax(newSl, bid - NormalizeStopDistance(initialRisk * InpTrailStepR));
+
+      newSl = NormalizePrice(newSl);
+      if((currentSl == 0.0 || newSl > currentSl) && newSl < bid)
+      {
+         if(trade.PositionModify(ticket, newSl, currentTp) && DebugLogs)
+            PrintFormat("POSITION MANAGED | BUY ticket=%s sl=%.5f profitR=%.2f initialRisk=%.5f", IntegerToString((long)ticket), newSl, openProfitDistance / initialRisk, initialRisk);
+      }
+   }
+   else if(type == POSITION_TYPE_SELL)
+   {
+      double openProfitDistance = openPrice - ask;
+
+      if(InpUseBreakEven && openProfitDistance >= initialRisk * InpBreakEvenR)
+      {
+         double breakevenSl = openPrice - BreakevenPlusPoints * _Point;
+         newSl = currentSl == 0.0 ? breakevenSl : MathMin(newSl, breakevenSl);
+      }
+
+      if(InpUseTrailingStop && openProfitDistance >= initialRisk * InpTrailStartR)
+      {
+         double trailSl = ask + NormalizeStopDistance(initialRisk * InpTrailStepR);
+         newSl = currentSl == 0.0 ? trailSl : MathMin(newSl, trailSl);
+      }
+
+      newSl = NormalizePrice(newSl);
+      if((currentSl == 0.0 || newSl < currentSl) && newSl > ask)
+      {
+         if(trade.PositionModify(ticket, newSl, currentTp) && DebugLogs)
+            PrintFormat("POSITION MANAGED | SELL ticket=%s sl=%.5f profitR=%.2f initialRisk=%.5f", IntegerToString((long)ticket), newSl, openProfitDistance / initialRisk, initialRisk);
+      }
+   }
+}
+
+double EstimateInitialRiskDistance(const double openPrice,
+                                   const double currentSl,
+                                   const double currentTp,
+                                   const double atrValue)
+{
+   if(currentTp > 0.0 && RewardRiskRatio > 0.0)
+      return MathAbs(currentTp - openPrice) / RewardRiskRatio;
+
+   if(currentSl > 0.0)
+      return MathAbs(openPrice - currentSl);
+
+   return NormalizeStopDistance(atrValue * StopAtrMultiple);
+}
+
+int CountOwnPositions(const long positionType = -1)
+{
+   int count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !IsOwnSelectedPosition())
+         continue;
+
+      if(positionType == -1 || PositionGetInteger(POSITION_TYPE) == positionType)
+         count++;
+   }
+
+   return count;
+}
+
+void CloseOwnPositionsByType(const long positionType)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !IsOwnSelectedPosition())
+         continue;
+
+      if(PositionGetInteger(POSITION_TYPE) == positionType)
+         trade.PositionClose(ticket);
+   }
+}
+
+void CloseAllOwnPositions()
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || !IsOwnSelectedPosition())
+         continue;
+
+      trade.PositionClose(ticket);
+   }
+}
+
+bool IsOwnSelectedPosition()
+{
+   return PositionGetString(POSITION_SYMBOL) == _Symbol &&
+          (ulong)PositionGetInteger(POSITION_MAGIC) == MagicNumber;
+}
+
+double NormalizePrice(const double price)
+{
+   return NormalizeDouble(price, (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS));
+}
+
+string BoolToString(const bool value)
+{
+   return value ? "true" : "false";
+}
+
+void LogSkip(const string reason)
+{
+   if(!DebugLogs)
+      return;
+
+   if(LogServerTimeOnSkip)
+   {
+      PrintFormat("Skip trade: %s | serverTime=%s tester=%s ignoreTesterSession=%s sessionFilter=%s session=%02d-%02d spread=%d maxSpread=%d",
+                  reason,
+                  TimeToString(TimeCurrent(), TIME_DATE | TIME_MINUTES),
+                  BoolToString((bool)MQLInfoInteger(MQL_TESTER)),
+                  BoolToString(IgnoreSessionFilterInTester),
+                  BoolToString(UseSessionFilter),
+                  SessionStartHour,
+                  SessionEndHour,
+                  (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD),
+                  MaxSpreadPoints);
+      return;
+   }
+
+   Print("Skip trade: ", reason);
+}
+
+double OnTester()
+{
+   const double netProfit = TesterStatistics(STAT_PROFIT);
+   const double profitFactor = TesterStatistics(STAT_PROFIT_FACTOR);
+   const double equityDrawdownPercent = TesterStatistics(STAT_EQUITY_DDREL_PERCENT);
+   const double trades = TesterStatistics(STAT_TRADES);
+
+   if(profitFactor < 1.10 || equityDrawdownPercent > 20.0 || trades < 100.0)
+   {
+      PrintFormat("ONTESTER REJECT | netProfit=%.2f profitFactor=%.2f equityDD%%=%.2f trades=%.0f",
+                  netProfit,
+                  profitFactor,
+                  equityDrawdownPercent,
+                  trades);
+      return 0.0;
+   }
+
+   double score = netProfit * profitFactor / MathMax(1.0, equityDrawdownPercent);
+   PrintFormat("ONTESTER SCORE | score=%.4f netProfit=%.2f profitFactor=%.2f equityDD%%=%.2f trades=%.0f",
+               score,
+               netProfit,
+               profitFactor,
+               equityDrawdownPercent,
+               trades);
+
+   return score;
+}
