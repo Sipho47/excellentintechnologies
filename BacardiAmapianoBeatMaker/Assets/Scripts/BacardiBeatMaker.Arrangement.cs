@@ -117,9 +117,9 @@ public partial class BacardiBeatMaker {
                         int source=SongSourceStep(stem,eventStep); if(source<0) continue;
                         int tick=(int)Math.Round((eventStep+(eventStep%2==1 ? swing : 0))*ppq/4.0);
                         int end=(int)Math.Round((eventStep+1+(eventStep%2==0 ? swing : 0))*ppq/4.0);
-                        int root=stem<8 ? Roots[stem]+noteOffsets[stem,source] : drums[stem-8];
+                        int root=stem<8 ? Roots[stem]+SongNote(stem,eventStep,source) : drums[stem-8];
                         var notes=stem==2 || stem==4 ? new[]{root,root+4,root+7} : new[]{root};
-                        foreach(int note in notes) { VariableLength(w,tick-last); last=tick; w.Write((byte)(144+channel)); w.Write((byte)note); w.Write((byte)Mathf.Clamp(velocities[stem,source],1,127)); }
+                        foreach(int note in notes) { VariableLength(w,tick-last); last=tick; w.Write((byte)(144+channel)); w.Write((byte)note); w.Write((byte)Mathf.Clamp(SongVelocity(stem,eventStep,source),1,127)); }
                         foreach(int note in notes) { VariableLength(w,end-last); last=end; w.Write((byte)(128+channel)); w.Write((byte)note); w.Write((byte)0); }
                     }
                     VariableLength(w,SongBars*barTicks-last); w.Write(new byte[]{255,47,0});

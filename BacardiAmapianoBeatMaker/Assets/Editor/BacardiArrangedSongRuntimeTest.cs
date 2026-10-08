@@ -35,7 +35,7 @@ public static class BacardiArrangedSongRuntimeTest {
         bool paused=AudioListener.pause; AudioListener.pause=true;
         try {
             var hashes=HashSources(); Assert(hashes.Count>0,"No source WAVs checked");
-            folder=Path.GetFullPath("Tools/ArrangementValidation/fixture-export"); Directory.CreateDirectory(folder);
+            folder=Path.GetFullPath("Tools/ArrangementValidation/fixture-export-"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder);
             maker=new GameObject("Offline 56-bar arrangement acceptance").AddComponent<BacardiBeatMaker>();
             Assert(maker.ExportArrangedSong("STEREO",Path.Combine(folder,"blocked"))==null && !Directory.Exists(Path.Combine(folder,"blocked")),"Unapplied export wrote files");
             Pass("arranged exports blocked before Apply, without creating files");
@@ -113,8 +113,10 @@ public static class BacardiArrangedSongRuntimeTest {
             var preview=(AudioClip)Get("arrangedClip"); var source=(AudioSource)Get("arrangedSource");
             Assert(preview!=null && preview.samples==frames && preview.channels==2 && !source.loop && source.volume==1 && source.pitch==1,"Preview is not the full arrangement");
             var previewPcm=new float[mix.Length]; preview.GetData(previewPcm,0);
-            for(int n=0;n<mix.Length;n++) Assert(previewPcm[n]==mix[n],"Preview and export differ");
-            Call("Stop"); Pass("arranged preview uses the same full-song stereo PCM as export, plays once at unity gain, and stops through the existing transport");
+            double previewPeak=0;foreach(float sample in mix)previewPeak=Math.Max(previewPeak,Math.Abs((double)sample));
+            double previewGain=previewPeak>1?1/previewPeak:1;
+            for(int n=0;n<mix.Length;n++) Assert(previewPcm[n]==(float)(mix[n]*previewGain),"Preview differs from instrumental plus existing common safety gain");
+            Call("Stop"); Pass("arranged preview retains full-song instrumental PCM with the existing common safety attenuation, plays once at unity source gain, and stops through existing transport; safety gain="+previewGain);
             maker.ReturnToOneBarGroove(); Assert(!maker.ArrangementApplied && (int)typeof(BacardiBeatMaker).GetProperty("SongBars",Flags).GetValue(maker)==1,"One-bar mode not restored");
             Assert(Get("songPlan")!=null && maker.ExportArrangedSong("MIDI",Path.Combine(folder,"blocked-again"))==null,"One-bar return failed to disable arranged exports");
             maker.ApplyVariationToSong(); Assert(maker.ArrangementLength==56,"Retained plan cannot be reapplied");
@@ -133,8 +135,11 @@ public static class BacardiArrangedSongRuntimeTest {
     static int VerifySilence(float[] pcm,BacardiSongVariation.Plan plan,int id,float tempo) {
         int count=0;
         for(int bar=0;bar<plan.bars;bar++) if(plan.masks[bar*25+id]==0) {
-            int start=(int)Math.Ceiling(bar*240.0/tempo*44100),end=Math.Min(pcm.Length/2,(int)Math.Ceiling((bar+1)*240.0/tempo*44100));
-            for(int n=start*2;n<end*2;n++) Assert(pcm[n]==0,"Inactive stem-bar contains PCM: stem "+id+" bar "+(bar+1)); count++;
+            // Event/stem placement uses nearest-sample bar boundaries; only total song duration uses Ceiling.
+            // Ceiling here includes the first active frame of the following bar at fractional boundaries.
+            int start=(int)Math.Round(bar*240.0/tempo*44100),end=Math.Min(pcm.Length/2,(int)Math.Round((bar+1)*240.0/tempo*44100));
+            string message="Inactive stem-bar contains PCM: stem "+id+" bar "+(bar+1);
+            for(int n=start*2;n<end*2;n++) Assert(pcm[n]==0,message); count++;
         }
         return count;
     }

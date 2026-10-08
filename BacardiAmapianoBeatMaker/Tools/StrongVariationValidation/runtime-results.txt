@@ -1,0 +1,23 @@
+PASS | checks=21
+PASS STRONG creates validated version-2 events with generator version and source snapshot
+PASS new attacks exist beyond source steps: 391
+PASS new plan length and read-only Song bars synchronize on APPLY
+PASS shared live/PCM/MIDI resolver exposes every generated attack, pitch and velocity
+PASS all source groove arrays remain unchanged
+PASS drops have different leads and measurable low-end/percussion/event identities: melody 0.977 | low end 0.867 | percussion 0.315 | overall 0.720
+PASS intro/build/breakdown/outro contrast with drop; section event patterns differ
+PASS breakdown event density below 55% of drop density
+PASS melodic phrases repeat exactly after the persisted 2/4-bar phrase length; entrance/transition changes remain intentional
+PASS rendered stereo differs from same-structure source-mask render; difference RMS=0.101184
+PASS rendered stereo is sample-exact on repeated replay
+PASS rendered melody, log-drum and shaker stems each differ from source-mask audio
+PASS arranged MIDI notes, velocities, swing timing and duration match generated events
+PASS accepted seed replay is exact including event data and generator version
+PASS saved v2 pattern/variation reload retains exact events, stereo PCM and Song bars
+PASS v2 combined-mix helper and actual preview AudioClip contain exact instrumental plus placed stereo vocal PCM
+PASS legacy saved v1 plans load and retain exact mask/source-note/source-velocity semantics
+PASS legacy v1 score display measures actual events instead of default deserialized score objects
+PASS section-length/boundary changes alone score exactly zero
+PASS failed generation retains existing plan
+PASS 104 BPM preserved; zero provider/API or proxy calls; synthetic fixtures only
+PART 10 untouched. No user exports or mastering.

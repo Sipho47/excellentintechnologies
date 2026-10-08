@@ -27,6 +27,7 @@ public static class BacardiStereoMasterUiTest {
     static EditorWindow game;
     static int scenario,stage,row,repaint;
     static double deadline;
+    static double resolutionDeadline;
     static string report="",sourcePath,sourceBytes;
     static object Get(string name) { return typeof(BacardiStereoMasterPanel).GetField(name,Flags).GetValue(panel); }
     static void Set(string name,object value) { typeof(BacardiStereoMasterPanel).GetField(name,Flags).SetValue(panel,value); }
@@ -50,6 +51,7 @@ public static class BacardiStereoMasterUiTest {
         game.minSize=Vector2.zero; game.maxSize=new Vector2(4000,3000);
         game.position=new Rect(40,40,Mathf.Min(1200,Sizes[scenario].x),Mathf.Min(850,Sizes[scenario].y)+40);
         game.Focus(); Set("scroll",Vector2.zero); repaint=panel.ResultRepaints;
+        resolutionDeadline=EditorApplication.timeSinceStartup+15;
         stage=scenario==0?1:4; row=0; game.Repaint();
     }
     static Vector2 EventPoint(Vector2 pixel) {
@@ -86,7 +88,11 @@ public static class BacardiStereoMasterUiTest {
             }
             if(panel.ResultRepaints<=repaint) { game.Repaint(); return; }
             repaint=panel.ResultRepaints;
-            Check(Screen.width==Sizes[scenario].x && Screen.height==Sizes[scenario].y,"Actual Game-view size differs: "+Screen.width+"x"+Screen.height);
+            if(Screen.width!=Sizes[scenario].x || Screen.height!=Sizes[scenario].y) {
+                // The fixed-resolution setter can precede the actual Game-view render by a repaint.
+                Check(EditorApplication.timeSinceStartup<resolutionDeadline,"Actual Game-view size differs: "+Screen.width+"x"+Screen.height);
+                game.Focus(); game.Repaint(); return;
+            }
             Check(panel.ScrollViewport.yMax<=Screen.height-18+.5f,"Viewport extends below parent area");
             if(stage==1) {
                 if(Get("pending")!=null) return;

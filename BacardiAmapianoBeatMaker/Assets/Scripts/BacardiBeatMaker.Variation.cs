@@ -18,24 +18,39 @@ public partial class BacardiBeatMaker
     int SongSteps { get { return SongBars * 16; } }
 
     static bool ValidSongPlan(BacardiSongVariation.Plan p) {
-        if(p == null || p.version != 1 || p.personality < 0 || p.personality > 6 || p.amount < 0 || p.amount > 2 ||
+        if(p == null || (p.version != 1 && p.version != 2) || p.personality < 0 || p.personality > 6 || p.amount < 0 || p.amount > 2 ||
             p.bars < 1 || p.bars > 100 || p.sections == null || p.sections.Length != 6 || p.masks == null || p.masks.Length != p.bars * 25) return false;
         int start=0;
         foreach(var s in p.sections) {
             if(s == null || s.start != start || s.bars < 1 || s.lead < 0 || s.lead > 4) return false;
             start += s.bars;
         }
-        return start == p.bars;
+        return start == p.bars && (p.version==1 || BacardiVariationEvents.ValidEvents(p));
     }
     // Single event resolver shared by live playback, PCM, duration and MIDI.
     int SongSourceStep(int id, int absoluteStep) {
         int step = absoluteStep % 16;
         if(appliedSongPlan == null) return steps[id,step] ? step : -1;
+        if(appliedSongPlan.version==2) return appliedSongPlan.eventVelocities[absoluteStep/16*400+id*16+step]>0?step:-1;
         if(!appliedSongPlan.Allows(id,absoluteStep)) return -1;
         if(id < 21) return steps[id,step] ? step : -1;
         // Reposition transition hits, preserving their original pitch and velocity.
         for(int s=0;s<16;s++) if(steps[id,s]) return s;
         return -1;
+    }
+    int SongNote(int id,int absoluteStep,int source) {
+        return appliedSongPlan!=null&&appliedSongPlan.version==2 ? appliedSongPlan.eventNotes[absoluteStep/16*400+id*16+absoluteStep%16] : noteOffsets[id,source];
+    }
+    int SongVelocity(int id,int absoluteStep,int source) {
+        return appliedSongPlan!=null&&appliedSongPlan.version==2 ? appliedSongPlan.eventVelocities[absoluteStep/16*400+id*16+absoluteStep%16] : velocities[id,source];
+    }
+    float SongPitch(int id,int absoluteStep,int source) {return id<8?Mathf.Pow(2,SongNote(id,absoluteStep,source)/12f):1;}
+    string EventScoreText(BacardiSongVariation.Plan p) {
+        var source=BacardiVariationEvents.Capture(steps,noteOffsets,velocities);
+        // Old v1 JSON has no recorded scores; Unity may deserialize missing nested objects as zeros.
+        var sourceScore=p.version==2&&p.sourceScore!=null?p.sourceScore:BacardiVariationEvents.Compare(null,p,source);
+        var dropScore=p.version==2&&p.dropScore!=null?p.dropScore:BacardiVariationEvents.Compare(p,p,source,2,4);
+        return "\nSOURCE: "+sourceScore+"\nPREVIOUS: "+(!p.hasPreviousScore?"N/A (not recorded)":p.previousScore.ToString())+"\nDROP CONTRAST: "+dropScore;
     }
     double SongEnd() {
         if(appliedSongPlan != null) return 60.0/bpm*4*SongBars;
@@ -56,13 +71,20 @@ public partial class BacardiBeatMaker
         try {
             double difference;
             bool same = songPlan != null && seed == songPlan.seed && variationPersonality == songPlan.personality && variationAmount == songPlan.amount;
-            var next = reuse || same ? BacardiSongVariation.Create(seed,variationPersonality,variationAmount) :
-                BacardiSongVariation.Generate(seed,variationPersonality,variationAmount,songPlan,out difference);
-            difference = BacardiSongVariation.Difference(songPlan,next);
+            var source=BacardiVariationEvents.Capture(steps,noteOffsets,velocities);
+            BacardiSongVariation.Plan next;
+            if((reuse||same)&&songPlan!=null&&seed==songPlan.seed&&variationPersonality==songPlan.personality&&variationAmount==songPlan.amount)
+                next=JsonUtility.FromJson<BacardiSongVariation.Plan>(JsonUtility.ToJson(songPlan));
+            else if(variationAmount==2) next=BacardiVariationEvents.Generate(seed,variationPersonality,source,songPlan);
+            else next=reuse||same?BacardiSongVariation.Create(seed,variationPersonality,variationAmount):BacardiSongVariation.Generate(seed,variationPersonality,variationAmount,songPlan,out difference);
+            // Canonicalize Unity's nested null-object serialization once at creation, not on replay.
+            if(next.version==2) next=JsonUtility.FromJson<BacardiSongVariation.Plan>(JsonUtility.ToJson(next));
+            difference = BacardiVariationEvents.Compare(songPlan,next,source).overall;
+            if(next.version==1&&!reuse&&!same) {next.sourceScore=BacardiVariationEvents.Compare(null,next,source);next.previousScore=songPlan==null?null:BacardiVariationEvents.Compare(songPlan,next,source);next.hasPreviousScore=songPlan!=null;next.dropScore=BacardiVariationEvents.Compare(next,next,source,2,4);}
             bool resume=playing; Stop(); appliedSongPlan=null; arrangementApplied=false; songPlan=next;
             vocalSongLengthDetached=false; SyncVocalSongLength();
             variationSeed=next.seed.ToString();
-            variationDifference=BacardiSongVariation.DifferenceLabel(difference)+(reuse || same ? " (seed replay)" : "");
+            variationDifference=(difference>=.45?"HIGH":difference>=.20?"MEDIUM":"LOW")+(reuse || same ? " (seed replay)" : "")+EventScoreText(next);
             if(resume) StartPlayback();
             status="Song variation planned: "+songPlan.bars+" bars / seed "+variationSeed+". Apply the variation to enable arranged playback and exports.";
         } catch(Exception e) { status=e.Message; }
@@ -76,7 +98,7 @@ public partial class BacardiBeatMaker
     public static readonly Color VariationUnselectedColor = new Color(.28f,.32f,.4f);
     public string VariationPreview { get { return songPlan == null ? "Current arrangement: ONE-BAR GROOVE (no variation planned)." : songPlan.Preview(Names); } }
     float SongVariationHeight(float width) {
-        return 914 + Mathf.Ceil(7f/(width<760 ? 2 : 4))*38 + Mathf.Max(100,label.CalcHeight(new GUIContent(VariationPreview),width-24));
+        return 914 + Mathf.Max(0,label.CalcHeight(new GUIContent("VARIATION DIFFERENCE: "+variationDifference),width-24)-24) + Mathf.Ceil(7f/(width<760 ? 2 : 4))*38 + Mathf.Max(100,label.CalcHeight(new GUIContent(VariationPreview),width-24));
     }
     bool VariationSelector(string key,string text,bool selected,GUIStyle style,params GUILayoutOption[] options) {
         Color previous=GUI.backgroundColor;
@@ -159,7 +181,7 @@ public partial class BacardiBeatMaker
             try {
                 var loaded=JsonUtility.FromJson<BacardiSongVariation.Plan>(PlayerPrefs.GetString("BacardiSongVariation",""));
                 if(!ValidSongPlan(loaded)) status="No valid saved variation found.";
-                else { Stop(); appliedSongPlan=null; arrangementApplied=false; songPlan=loaded; vocalSongLengthDetached=false; SyncVocalSongLength(); variationSeed=loaded.seed.ToString(); variationPersonality=loaded.personality; variationAmount=loaded.amount; variationDifference="LOW (saved variation restored)"; status="Saved variation loaded. Apply it to enable arranged playback and exports."; }
+                else { Stop(); appliedSongPlan=null; arrangementApplied=false; songPlan=loaded; vocalSongLengthDetached=false; SyncVocalSongLength(); variationSeed=loaded.seed.ToString(); variationPersonality=loaded.personality; variationAmount=loaded.amount; variationDifference="RESTORED (saved musical events)"+EventScoreText(loaded); status="Saved variation loaded. Apply it to enable arranged playback and exports."; }
             } catch(Exception e) { status="Could not load variation: "+e.Message; }
         }
         VariationBounds("LOAD VARIATION");
@@ -174,7 +196,7 @@ public partial class BacardiBeatMaker
         DrawAppliedSongVariation(buttonStyle);
         if(GUILayout.Button("ONE-BAR GROOVE",GUILayout.Height(32))) ReturnToOneBarGroove();
         VariationBounds("ONE-BAR GROOVE");
-        GUILayout.Label("Existing notes and stem levels are preserved. Seed replay repeats the plan; SAVE/LOAD PATTERN also preserves the groove. Inactive stems export as silence.",label);
+        GUILayout.Label("Source groove and stem levels are preserved. STRONG creates new musical events; SUBTLE/MEDIUM filter the source groove. Saved plans and seed replay retain exact events. Inactive stems export as silence.",label);
         GUILayout.EndVertical();
         VariationBounds("SECTION");
         if(Event.current.type==EventType.Repaint) VariationRepaints++;

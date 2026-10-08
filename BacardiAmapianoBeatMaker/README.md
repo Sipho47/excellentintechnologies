@@ -25,6 +25,12 @@ The post-arrangement master panel measures wrapped result rows inside its scroll
 
 The [saved test report](Tools/StereoUiValidation/runtime-ui-results.txt) records all four sizes passing. The tests do not export audio or call paid APIs. Additional offline validation sources and scripts are under `Tools`.
 
+## STRONG musical variations
+
+STRONG now generates versioned musical events with new melodic attacks, note pitches, velocities, bass patterns, percussion, and section transitions. Saved plans retain their source groove snapshot and accepted seed for exact replay across playback, WAV, and MIDI. Existing version-1 plans and SUBTLE/MEDIUM behavior remain supported.
+
+See [implementation and validation](Tools/StrongVariationValidation/Implementation.md) for the scoring gates and offline test evidence. Run `Tools/VariationValidation/Run-StrongVariationCorpus.ps1` from this project folder for the fixed 336-case corpus, and `Tools/VariationValidation/Run-VariationValidation.ps1` for the legacy planner checks. Both use the installed Unity .NET toolchain without provider calls.
+
 ## Vocal workflow updates
 
 Vocal results retain their provider identity. Switching providers or starting, failing, or cancelling generation invalidates stale results; preview requires valid audio from the selected provider. Saved isolated vocal WAVs can be reloaded without provider calls, using validated source metadata rather than filenames to establish provenance.

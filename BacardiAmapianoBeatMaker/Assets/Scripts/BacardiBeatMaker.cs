@@ -113,7 +113,7 @@ public partial class BacardiBeatMaker : MonoBehaviour
         {
             for (int i = 0; i < 25; i++) {
                 int source = SongSourceStep(i, songStep);
-                if (source >= 0) Trigger(i, nextTime, velocities[i, source], StepPitch(i,source));
+                if (source >= 0) Trigger(i, nextTime, SongVelocity(i,songStep,source), SongPitch(i,songStep,source));
             }
             nextTime += Duration(nextStep);
             current = nextStep;
@@ -475,13 +475,14 @@ public partial class BacardiBeatMaker : MonoBehaviour
             if(p==null || p.cells==null || p.cells.Length!=400) { status="No saved pattern found."; return; }
             Stop(); bpm=Mathf.Clamp(p.tempo,80,150); swing=Mathf.Clamp(p.shuffle,0,.45f);
             appliedSongPlan=null; appliedSongPlan=null; arrangementApplied=false; songPlan = ValidSongPlan(p.variation) ? p.variation : null;
-            if(songPlan != null) { variationSeed=songPlan.seed.ToString(); variationPersonality=songPlan.personality; variationAmount=songPlan.amount; variationDifference="LOW (saved variation restored)"; }
+            if(songPlan != null) { variationSeed=songPlan.seed.ToString(); variationPersonality=songPlan.personality; variationAmount=songPlan.amount; }
             for(int i=0;i<25;i++) for(int s=0;s<16;s++) {
                 steps[i,s]=p.cells[i*16+s];
                 noteOffsets[i,s]=i<8 && p.notes!=null && p.notes.Length==400 ? Mathf.Clamp(p.notes[i*16+s],-24,24) : 0;
                 velocities[i,s]=p.velocities != null && p.velocities.Length == 400 ? Mathf.Clamp(p.velocities[i*16+s],1,127) : DefaultVelocity;
             }
             vocalSongLengthDetached=false; SyncVocalSongLength();
+            if(songPlan!=null) variationDifference="RESTORED (saved musical events)"+EventScoreText(songPlan);
             status="Saved pattern loaded.";
         } catch(Exception e) { status="Could not load pattern: " + e.Message; }
     }
@@ -520,7 +521,7 @@ public partial class BacardiBeatMaker : MonoBehaviour
             int step = SongSourceStep(id,eventStep);
             if (step >= 0) {
                 int start = (int)Math.Round(time * Rate);
-                double pitch=StepPitch(id,step);
+                double pitch=SongPitch(id,eventStep,step);
                 int count = (int)Math.Ceiling(sourceFrames * (double)Rate / sampleRate / pitch);
                 if(ArrangementApplied) {
                     int endBar=eventStep/16+1;
@@ -533,7 +534,7 @@ public partial class BacardiBeatMaker : MonoBehaviour
                     float fraction = (float)(position - a);
                     for (int c = 0; c < 2; c++) {
                         int channel = channels == 1 ? 0 : c;
-                        result[(start + n) * 2 + c] += Mathf.Lerp(data[a * channels + channel], data[b * channels + channel], fraction) * volume * VelocityGain(velocities[id,step]);
+                        result[(start + n) * 2 + c] += Mathf.Lerp(data[a * channels + channel], data[b * channels + channel], fraction) * volume * VelocityGain(SongVelocity(id,eventStep,step));
                     }
                 }
             }
@@ -737,11 +738,11 @@ public partial class BacardiBeatMaker : MonoBehaviour
                         if(s < 0) continue;
                         int tick = (int)Math.Round((eventStep + (eventStep % 2 == 1 ? swing : 0)) * ppq / 4.0);
                         int end = (int)Math.Round((eventStep + 1 + (eventStep % 2 == 0 ? swing : 0)) * ppq / 4.0);
-                        int root=id<8 ? roots[id]+noteOffsets[id,s] : 36+id-8;
+                        int root=id<8 ? roots[id]+SongNote(id,eventStep,s) : 36+id-8;
                         int channel=id<8 ? id : 9;
                         int[] notes = id == 2 || id == 4 ? new[] { root, root + 4, root + 7 } : new[] { root };
                         foreach (int note in notes) {
-                            VariableLength(w, tick - last); w.Write((byte)(144 + channel)); w.Write((byte)note); w.Write((byte)Mathf.Clamp(velocities[id,s],1,127)); last = tick;
+                            VariableLength(w, tick - last); w.Write((byte)(144 + channel)); w.Write((byte)note); w.Write((byte)Mathf.Clamp(SongVelocity(id,eventStep,s),1,127)); last = tick;
                         }
                         foreach (int note in notes) {
                             VariableLength(w, end - last); w.Write((byte)(128 + channel)); w.Write((byte)note); w.Write((byte)0); last = end;

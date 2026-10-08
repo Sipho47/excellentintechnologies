@@ -16,6 +16,13 @@ public static class BacardiSongVariation
         public Section[] sections;
         // Per bar, per stem sixteenth-note permission masks. Notes/levels stay in the groove.
         public int[] masks;
+        // v1 masks are interpreted exactly as before. v2 stores complete resolved events.
+        public int generatorVersion;
+        public int phraseBars;
+        public BacardiVariationEvents.Groove sourceGroove;
+        public int[] eventNotes, eventVelocities;
+        public BacardiVariationEvents.Score sourceScore, previousScore, dropScore;
+        public bool hasPreviousScore;
         public bool Allows(int stem, int absoluteStep) {
             return absoluteStep >= 0 && absoluteStep < bars * 16 &&
                 (masks[absoluteStep / 16 * 25 + stem] & (1 << (absoluteStep % 16))) != 0;

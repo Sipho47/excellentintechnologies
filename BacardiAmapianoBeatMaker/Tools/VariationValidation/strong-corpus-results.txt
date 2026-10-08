@@ -1,0 +1,9 @@
+Accepted 336/336; failures 0; retries 179; maximum attempts 12
+Mean source score: SUBTLE 0.735948, MEDIUM 0.712137, STRONG 0.941716
+STRONG source range 0.928744–0.949944; family minima melody 0.930435, low end 1.000000, percussion 0.842199
+Previous minimum 0.497238; Drop contrast minimum 0.625490
+Checks 1680
+Previous family minimum 0.250000
+SUBTLE family means: melody 0.694378, low end 0.785978, percussion 0.727487
+MEDIUM family means: melody 0.616737, low end 0.806021, percussion 0.713655
+STRONG family means: melody 0.969918, low end 1.000000, percussion 0.855231
