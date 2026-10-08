@@ -1,0 +1,17 @@
+PASS
+PASS unapplied arrangement rejected before output creation
+PASS zero-placement mix equals instrumental exactly; 46-bar duration retained; no mastering despite enabled target
+PASS instrumental present; REAL_AI PCM begins at Bar 13; stereo channels retained; exact zero vocal contribution outside placement
+PASS three placements at Bars 13, 17 and 15 sum correctly, including overlaps and right/left channel polarity
+PASS original EXPORT ARRANGED STEREO WAV remains bit-exact instrumental-only with vocals placed
+PASS clipping protection uses one common constant attenuation, preserving mix balance and all placement timing
+PASS existing output files protected
+PASS tempo mismatch rejected before output creation
+PASS start before Bar 1 rejected before output creation
+PASS vocal beyond song end rejected before output creation
+PASS PCM beyond song end rejected before output creation
+PASS empty audio rejected before output creation
+PASS invalid PCM rejected before output creation
+PASS wrong sample rate rejected before output creation
+PASS arrangement plan, BPM and mastering settings unchanged
+Synthetic offline fixtures only. PART 8 was not read, exported or mastered. No API calls.

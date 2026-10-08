@@ -60,6 +60,7 @@ public partial class BacardiBeatMaker : MonoBehaviour
         }
         aiVocals = new BacardiAiVocalGenerator(gameObject);
         Demo();
+        SyncVocalSongLength();
     }
 
     static AudioClip CreatePlaybackClip(AudioClip original) {
@@ -93,10 +94,11 @@ public partial class BacardiBeatMaker : MonoBehaviour
     double Duration(int step) { return 60.0 / bpm / 4 * (step % 2 == 0 ? 1 + swing : 1 - swing); }
     void Update()
     {
+        SyncVocalSongLength();
         if(stereoMode) return;
         if(arrangedPreviewRunning) {
             songStep=Math.Min(SongSteps-1,(int)(arrangedSource.time*bpm/60*4));
-            if(!arrangedSource.isPlaying) { arrangedPreviewRunning=false; playing=false; current=-1; }
+            if(!arrangedSource.isPlaying) { StopArrangedPreview(); playing=false; current=-1; }
             return;
         }
         if(Application.IsPlaying(gameObject) && analysisRequested) {
@@ -448,7 +450,7 @@ public partial class BacardiBeatMaker : MonoBehaviour
         if (GUILayout.Button("EXPORT -14 LUFS STEMS", GUILayout.Height(32))) Export(true,true);
         if (GUILayout.Button("EXPORT MELODIC MIDI", GUILayout.Height(32))) ExportMidi();
         GUILayout.EndHorizontal();
-        if (aiVocals != null) aiVocals.Draw(bpm, loudness, Mathf.Max(200, Screen.width - 80));
+        if (aiVocals != null) { SyncVocalSongLength(); aiVocals.Draw(bpm, loudness, Mathf.Max(200, Screen.width - 80)); }
         else GUILayout.Label("AI VOCAL GENERATOR / Press Play in Unity to enable local vocal generation.",label);
         GUI.enabled = previousEnabled;
         GUILayout.Space(8); GUILayout.Label(status,label);
@@ -479,6 +481,7 @@ public partial class BacardiBeatMaker : MonoBehaviour
                 noteOffsets[i,s]=i<8 && p.notes!=null && p.notes.Length==400 ? Mathf.Clamp(p.notes[i*16+s],-24,24) : 0;
                 velocities[i,s]=p.velocities != null && p.velocities.Length == 400 ? Mathf.Clamp(p.velocities[i*16+s],1,127) : DefaultVelocity;
             }
+            vocalSongLengthDetached=false; SyncVocalSongLength();
             status="Saved pattern loaded.";
         } catch(Exception e) { status="Could not load pattern: " + e.Message; }
     }

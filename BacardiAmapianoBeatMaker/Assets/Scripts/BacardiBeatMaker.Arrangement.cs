@@ -6,6 +6,7 @@ public partial class BacardiBeatMaker {
     AudioSource arrangedSource;
     AudioClip arrangedClip;
     bool arrangedPreviewRunning;
+    bool arrangedListenerOverride, priorUnprocessedPlayback;
     public bool ArrangementApplied { get { return arrangementApplied && appliedSongPlan != null; } }
     int ArrangedFrames { get { return (int)Math.Ceiling(appliedSongPlan.bars * 240.0 / bpm * Rate); } }
     public int ArrangementLength { get { return ArrangementApplied ? appliedSongPlan.bars : 0; } }
@@ -21,25 +22,36 @@ public partial class BacardiBeatMaker {
         // Freeze a copy of the saved plan, without changing the planning algorithm.
         appliedSongPlan=JsonUtility.FromJson<BacardiSongVariation.Plan>(JsonUtility.ToJson(songPlan));
         arrangementApplied=true;
+        vocalSongLengthDetached=false; SyncVocalSongLength();
         status="Arrangement applied: "+songPlan.bars+" bars. Preview before exporting.";
     }
     void StopArrangedPreview() {
         arrangedPreviewRunning=false;
         if(arrangedSource!=null) arrangedSource.Stop();
+        if(arrangedSource!=null) arrangedSource.clip=null;
         if(arrangedClip!=null) { Destroy(arrangedClip); arrangedClip=null; }
+        if(arrangedListenerOverride) {
+            if(lufsMeter!=null) lufsMeter.PostArrangementPlayback=priorUnprocessedPlayback;
+            arrangedListenerOverride=false;
+        }
     }
     public void PreviewArrangedSong() {
         if(!ArrangementApplied) { status="Apply the variation first."; return; }
         Stop();
+        if(aiVocals!=null) aiVocals.StopPreview();
         try {
-            var pcm=ArrangementMix();
+            var rendered=BuildArrangedVocalMix(); var pcm=rendered.Pcm;
             arrangedClip=AudioClip.Create("Arranged song",pcm.Length/2,2,Rate,false);
-            arrangedClip.SetData(pcm,0);
+            if(!arrangedClip.SetData(pcm,0)) throw new InvalidDataException("Could not load arranged preview PCM.");
             if(arrangedSource==null) { arrangedSource=gameObject.AddComponent<AudioSource>(); arrangedSource.playOnAwake=false; }
             arrangedSource.clip=arrangedClip; arrangedSource.volume=1; arrangedSource.pitch=1; arrangedSource.loop=false;
+            if(lufsMeter!=null) {
+                priorUnprocessedPlayback=lufsMeter.PostArrangementPlayback;
+                arrangedListenerOverride=true; lufsMeter.PostArrangementPlayback=true;
+            }
             arrangedSource.spatialBlend=0; arrangedSource.Play(); arrangedPreviewRunning=true; playing=true;
-            status="Previewing full "+SongBars+"-bar arrangement.";
-        } catch(Exception e) { status="Arranged preview failed: "+e.Message; }
+            status="Previewing full "+SongBars+"-bar arrangement with "+rendered.PlacementCount+" vocal placements (unmastered).";
+        } catch(Exception e) { StopArrangedPreview(); playing=false; status="Arranged preview failed: "+e.Message; }
     }
     // A zero permission bar is silent, including tails from the preceding section.
     // Within active bars, keep natural sample tails and the planner's note permissions.
@@ -80,7 +92,7 @@ public partial class BacardiBeatMaker {
             status="Arranged "+kind+" exported: "+folder; return folder;
         } catch(Exception e) { status="Arranged export failed: "+e.Message; return null; }
     }
-    public void ReturnToOneBarGroove() { Stop(); appliedSongPlan=null; arrangementApplied=false; status="ONE-BAR GROOVE active. The planned variation is retained for reapplying."; }
+    public void ReturnToOneBarGroove() { Stop(); appliedSongPlan=null; arrangementApplied=false; vocalSongLengthDetached=true; SyncVocalSongLength(); status="ONE-BAR GROOVE active. The planned variation is retained for reapplying."; }
     void WriteArrangedMidi(string path) {
         const int ppq=960,barTicks=3840;
         using(var file=new BinaryWriter(new FileStream(path,FileMode.CreateNew,FileAccess.Write))) {
@@ -132,6 +144,10 @@ public partial class BacardiBeatMaker {
             VariationBounds(caption);
             if(Event.current.type==EventType.Repaint) VariationControlEnabled[caption]=GUI.enabled;
         }
+        const string vocalExport="EXPORT ARRANGED STEREO + VOCALS WAV";
+        if(GUILayout.Button(vocalExport,GUILayout.Height(36))) ExportArrangedStereoWithVocals();
+        VariationBounds(vocalExport);
+        if(Event.current.type==EventType.Repaint) VariationControlEnabled[vocalExport]=GUI.enabled;
         GUI.enabled=enabled;
     }
 }

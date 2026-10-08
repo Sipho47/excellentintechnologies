@@ -1,0 +1,34 @@
+Provider: LOCAL MOCK (synthetic vowels; does not sing lyrics)
+MOCK AUDIO: synthetic vowels, not intelligible sung lyrics.
+Lyrics:
+Come closer, don’t let go
+Move with me, nice and slow
+All night, feel the glow
+Where we’re going, only we know
+BPM: 104
+Key: C Major
+Style: Smooth Amapiano / Afro-house
+Character: warm, intimate, airy, clear, soulful, hypnotic
+Voice: Female
+Role: Lead
+Bars: 4
+Energy: 0.45
+Emotion: 0.6
+Dry: True
+Relative minor flavor: True
+Vocal sample peak: -18.68 dBFS
+Vocal LUFS-I: -23.70
+Format: 44100 Hz, stereo, 24-bit PCM
+No vocal LUFS normalization. -14 LUFS is a MASTER target.
+Prompt:
+Smooth Amapiano / Afro-house Female singer, 104 BPM, C Major with A minor flavor, warm, intimate, airy, clear, soulful, hypnotic, energy 0.45, emotion 0.60. Lead part, 4 bars in 4/4. Short catchy phrases with space between lines, emotional but relaxed, South African Amapiano feel. Isolated sung vocals without drums, bass, piano or instrumental backing. Simple memorable melody rhythmically loose around the groove. Dry vocal. Lyrics:
+Come closer, don’t let go
+Move with me, nice and slow
+All night, feel the glow
+Where we’re going, only we know
+Pronunciation / Accent Guidance (REAL AI style only):
+
+AI Pronunciation Text (REAL AI sung words only; original Lyrics preserved above):
+
+STRICT LYRICS / WORD PRESERVATION (REAL AI style only): False
+SLOWER PHRASE DENSITY (REAL AI style only; project BPM unchanged): False

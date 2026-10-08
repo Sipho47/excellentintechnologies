@@ -32,12 +32,20 @@ public sealed class AiVocalProgress {
     public AiVocalProgress(string state, float fraction) { State = state; Fraction = fraction; }
 }
 public sealed class AiVocalResult {
+    public string Source = "REAL_AI";
     public AiVocalRequest Request;
     public string Provider;
     public bool IsMock;
     public float[] Pcm; // Interleaved stereo PCM; owns its immutable generation settings.
     public int SampleRate = 44100;
     public double PeakDb, Integrated;
+}
+[Serializable]
+public sealed class AiVocalSavedMetadata {
+    public int Version=1, SampleRate=44100, Channels=2, Bits=24, Frames;
+    public string FileName, WavSha256, Source, Provider;
+    public bool IsMock;
+    public AiVocalRequest Request;
 }
 public interface IAiVocalProvider {
     string Name { get; }
@@ -90,7 +98,7 @@ public sealed class MockAiVocalProvider : IAiVocalProvider {
             double gain = peak > .25 ? .25 / peak : 1;
             for (int i = 0; i < pcm.Length; i++) pcm[i] *= (float)gain;
             token.ThrowIfCancellationRequested();
-            return new AiVocalResult { Pcm = pcm, Request = r, Provider = Name, IsMock = true,
+            return new AiVocalResult { Pcm = pcm, Request = r, Provider = Name, IsMock = true, Source = "LOCAL_MOCK",
                 PeakDb = 20 * Math.Log10(Math.Max(1e-20, peak * gain)),
                 Integrated = BacardiMastering.Measure(pcm, 44100) };
         }, token);

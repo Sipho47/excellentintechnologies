@@ -1,0 +1,7 @@
+AudioVisualizer.cs | BYTE-IDENTICAL
+BacardiBeatMaker.cs | AUTHORIZED INTEGRATION HOOKS ONLY
+BacardiLoudness.cs | BYTE-IDENTICAL
+BacardiLufsEngine.cs | BYTE-IDENTICAL
+BacardiMasterComparison.cs | BYTE-IDENTICAL
+BacardiMastering.cs | BYTE-IDENTICAL
+BacardiMasterLufsMeter.cs | BYTE-IDENTICAL

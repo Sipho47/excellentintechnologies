@@ -1,0 +1,5 @@
+PASS
+PASS (1920.00, 1080.00): production Draw, visible unclipped 36px controls and status, actual clicks, all four CurrentRequest/JSON flag combinations; existing settings preserved.
+PASS (960.00, 540.00): production Draw, visible unclipped 36px controls and status, actual clicks, all four CurrentRequest/JSON flag combinations; existing settings preserved.
+PASS (640.00, 480.00): production Draw, visible unclipped 36px controls and status, actual clicks, all four CurrentRequest/JSON flag combinations; existing settings preserved.
+No generation methods called. No ElevenLabs/network calls.

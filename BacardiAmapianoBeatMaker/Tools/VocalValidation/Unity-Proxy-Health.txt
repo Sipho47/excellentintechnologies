@@ -1,0 +1,4 @@
+Unity 6000.3.24f1
+PROXY ONLINE
+http://127.0.0.1:8765/ | HTTP 200 | Backend credentials: missing | FFmpeg: available
+Connectivity check only; ElevenLabs was not contacted.

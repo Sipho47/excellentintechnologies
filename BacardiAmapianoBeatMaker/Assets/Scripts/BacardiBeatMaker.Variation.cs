@@ -6,6 +6,12 @@ public partial class BacardiBeatMaker
     BacardiSongVariation.Plan songPlan;
     BacardiSongVariation.Plan appliedSongPlan;
     bool arrangementApplied;
+    bool vocalSongLengthDetached;
+    void SyncVocalSongLength() {
+        if(aiVocals==null) return;
+        int bars=ArrangementApplied?appliedSongPlan.bars:!vocalSongLengthDetached&&ValidSongPlan(songPlan)?songPlan.bars:0;
+        aiVocals.SyncSongBars(bars);
+    }
     int songStep, variationPersonality, variationAmount = 2;
     string variationSeed = "104", variationDifference = "HIGH (first plan)";
     int SongBars { get { return appliedSongPlan == null ? 1 : appliedSongPlan.bars; } }
@@ -54,6 +60,7 @@ public partial class BacardiBeatMaker
                 BacardiSongVariation.Generate(seed,variationPersonality,variationAmount,songPlan,out difference);
             difference = BacardiSongVariation.Difference(songPlan,next);
             bool resume=playing; Stop(); appliedSongPlan=null; arrangementApplied=false; songPlan=next;
+            vocalSongLengthDetached=false; SyncVocalSongLength();
             variationSeed=next.seed.ToString();
             variationDifference=BacardiSongVariation.DifferenceLabel(difference)+(reuse || same ? " (seed replay)" : "");
             if(resume) StartPlayback();
@@ -152,7 +159,7 @@ public partial class BacardiBeatMaker
             try {
                 var loaded=JsonUtility.FromJson<BacardiSongVariation.Plan>(PlayerPrefs.GetString("BacardiSongVariation",""));
                 if(!ValidSongPlan(loaded)) status="No valid saved variation found.";
-                else { Stop(); appliedSongPlan=null; arrangementApplied=false; songPlan=loaded; variationSeed=loaded.seed.ToString(); variationPersonality=loaded.personality; variationAmount=loaded.amount; variationDifference="LOW (saved variation restored)"; status="Saved variation loaded. Apply it to enable arranged playback and exports."; }
+                else { Stop(); appliedSongPlan=null; arrangementApplied=false; songPlan=loaded; vocalSongLengthDetached=false; SyncVocalSongLength(); variationSeed=loaded.seed.ToString(); variationPersonality=loaded.personality; variationAmount=loaded.amount; variationDifference="LOW (saved variation restored)"; status="Saved variation loaded. Apply it to enable arranged playback and exports."; }
             } catch(Exception e) { status="Could not load variation: "+e.Message; }
         }
         VariationBounds("LOAD VARIATION");

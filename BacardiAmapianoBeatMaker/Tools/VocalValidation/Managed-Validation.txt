@@ -1,0 +1,10 @@
+PASS original Unicode lyric export and prompt metadata preserved with independent pronunciation text.
+PASS local hook lyrics: four non-empty lines, varied hooks, no immediate repeats.
+PASS timeline: DSP mapping, pause/resume, stop, future tempo changes; Bar13=1221231 frames, Bar17=1628308 frames.
+PASS MOCK exact isiZulu, accented Latin and non-Latin lyrics in request/export metadata.
+PASS strict/density options preserve MOCK PCM, BPM and duration; export records settings separately.
+PASS mock Female 104 BPM C Major: 4 bars, peak=-18.68 dBFS, LUFS-I=-23.70. No loudness normalization.
+PASS 32-bar stereo 44100 Hz / 24-bit aligned WAV: both hooks; leading/trailing silence; exact PCM placement.
+PASS tempo mismatch rejects pitch-shift conversion; explicit regeneration required.
+PASS regenerated 120 BPM output aligns without resampling.
+PASS generation cancellation.

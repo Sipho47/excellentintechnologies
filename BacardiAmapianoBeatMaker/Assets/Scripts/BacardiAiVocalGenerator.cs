@@ -60,7 +60,24 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     }
     static Rect ScreenRect(Rect rect) { return new Rect(GUIUtility.GUIToScreenPoint(rect.position), rect.size); }
     public readonly BacardiVocalTimeline Timeline = new BacardiVocalTimeline();
-    public IAiVocalProvider Provider { get; set; } = new MockAiVocalProvider();
+    IAiVocalProvider provider = new MockAiVocalProvider(), generationProvider;
+    bool generationCancelled;
+    public IAiVocalProvider Provider {
+        get { return provider; }
+        set {
+            if(value==null) throw new ArgumentNullException("value");
+            if(ReferenceEquals(provider,value)) return;
+            Cancel(); InvalidateResult(); provider=value;
+            providerChoice=value is MockAiVocalProvider ? 0 : 1;
+            State="READY"; Message="Selected "+value.Name+". Generate new audio before previewing.";
+        }
+    }
+    public string SelectedSource { get { return Provider is MockAiVocalProvider ? "LOCAL_MOCK" : "REAL_AI"; } }
+    public bool CanPreview { get { return !Busy && Result!=null && Result.Source==SelectedSource && Result.IsMock==(SelectedSource=="LOCAL_MOCK") && clips.ContainsKey(Result); } }
+    void InvalidateResult() {
+        StopPreview(); if(preview!=null) preview.clip=null;
+        Result=null; ReleaseUnusedClips();
+    }
     public sealed class Placement {
         public AiVocalResult Vocal;
         public int StartBar;
@@ -82,6 +99,8 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     AudioReverbFilter reverb;
     CancellationTokenSource cancellation;
     Task<AiVocalResult> generation;
+    Task<AiVocalResult> savedVocalLoad;
+    string savedVocalPath="";
     Task<string> export;
     Task<string> connectionTest;
     public string ConnectionStatus { get; private set; } = "";
@@ -100,6 +119,31 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     float fraction;
     bool disposed;
     string lyrics = Hook, startText = "13", songText = "32";
+    string manualSongText="32";
+    public int SynchronizedSongBars { get; private set; }
+    public string SongBarsDisplay { get { return songText; } }
+    public bool SongBarsReadOnly { get { return SynchronizedSongBars>0; } }
+    public void SyncSongBars(int bars) {
+        if(bars<0||bars>512) throw new ArgumentOutOfRangeException("bars");
+        if(bars>0) {
+            if(SynchronizedSongBars==0) manualSongText=songText;
+            songText=bars.ToString(CultureInfo.InvariantCulture);
+        } else if(SynchronizedSongBars>0) songText=manualSongText;
+        SynchronizedSongBars=bars;
+    }
+    string PlacementLengthError(AiVocalResult vocal,int startBar) {
+        if(!SongBarsReadOnly) return "";
+        if(vocal==null||vocal.Request==null||vocal.Pcm==null||startBar<1||vocal.Request.Bars<1||
+            (long)startBar-1+vocal.Request.Bars>SynchronizedSongBars||
+            BacardiVocalTimeline.FrameAtBar(startBar,vocal.Request.Bpm)+vocal.Pcm.Length/2>
+                BacardiVocalTimeline.FrameAtBar(SynchronizedSongBars+1,vocal.Request.Bpm))
+            return "Vocal placement at Bar "+startBar+" does not fit the "+SynchronizedSongBars+"-bar song. Move or remove the placement; no automatic changes were made.";
+        return "";
+    }
+    public string PlacementValidationStatus {
+        get { foreach(var p in Placements) { string error=PlacementLengthError(p.Vocal,p.StartBar); if(error.Length>0) return error; } return ""; }
+    }
+    void RequireValidPlacements() { string error=PlacementValidationStatus; if(error.Length>0) throw new InvalidOperationException(error); }
     readonly System.Random lyricRandom = new System.Random();
     public string Lyrics { get { return lyrics; } }
     public AiVocalRequest CurrentRequest(double bpm) {
@@ -119,7 +163,20 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     bool dry = true, lightReverb, minorFlavor = true;
     static readonly string[] Voices = { "Female", "Male" }, Roles = { "Lead", "Harmony", "Ad-lib" };
     static readonly int[] Lengths = { 2, 4, 8, 16 };
-    public bool Busy { get { return generation != null || export != null; } }
+    public bool Busy { get { return generation != null || export != null || savedVocalLoad != null; } }
+    public void LoadSavedVocal(string path,double bpm) {
+        if(Busy||disposed) throw new InvalidOperationException("Wait for the current vocal operation to finish.");
+        InvalidateResult(); savedVocalPath=path;
+        State="LOADING SAVED VOCAL..."; Message="Local WAV and metadata validation; no provider calls."; fraction=0;
+        savedVocalLoad=Task.Run(()=>BacardiSavedVocalLoader.Load(path,bpm));
+    }
+    void RestoreSavedSettings(AiVocalRequest q) {
+        lyrics=q.Lyrics; voice=Array.IndexOf(Voices,q.Voice); role=Array.IndexOf(Roles,q.Role);
+        key=q.Key=="A"?1:0; length=Array.IndexOf(Lengths,q.Bars);
+        energy=q.Energy; emotion=q.Emotion; dry=q.Dry; minorFlavor=q.RelativeMinor;
+        PronunciationGuidance=q.PronunciationGuidance; AiPronunciationText=q.AiPronunciationText;
+        StrictLyrics=q.StrictLyrics; SlowerPhraseDensity=q.SlowerPhraseDensity;
+    }
     public BacardiAiVocalGenerator(GameObject owner) {
         this.owner = owner; preview = NewSource();
         reverb = preview.gameObject.AddComponent<AudioReverbFilter>();
@@ -136,6 +193,8 @@ public sealed class BacardiAiVocalGenerator : IDisposable
             throw new ArgumentException("Provider must return non-empty 44.1 kHz interleaved stereo PCM and generation settings.");
         AudioClip clip;
         if (!clips.TryGetValue(vocal, out clip)) {
+            foreach(float sample in vocal.Pcm) if(float.IsNaN(sample)||float.IsInfinity(sample)||Math.Abs(sample)>1)
+                throw new ArgumentException("Provider returned invalid or clipping vocal PCM.");
             clip = AudioClip.Create("AI " + vocal.Request.Role + (vocal.IsMock ? " [MOCK]" : ""), vocal.Pcm.Length / 2, 2, 44100, false);
             if (!clip.SetData(vocal.Pcm, 0)) { UnityEngine.Object.Destroy(clip); throw new Exception("Could not load vocal PCM."); }
             clips.Add(vocal, clip);
@@ -145,12 +204,13 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     public void Generate(AiVocalRequest request, bool replacePlaced = false) {
         if (Busy) return;
         replacePlacedOnCompletion = replacePlaced; replacePrevious = Result;
+        InvalidateResult(); generationProvider=Provider; generationCancelled=false;
         StopPreview(); cancellation = new CancellationTokenSource();
         State = "GENERATING..."; Message = Provider.Name; fraction = 0;
         try { generation = Provider.GenerateAsync(request, new ProgressSink(progress), cancellation.Token); }
         catch (Exception e) { cancellation.Dispose(); cancellation = null; Fail(e, "generation"); }
     }
-    public void Cancel() { if (cancellation != null) cancellation.Cancel(); }
+    public void Cancel() { if (cancellation != null) { generationCancelled=true; cancellation.Cancel(); InvalidateResult(); } }
     public void Play(double dspStart, double bpm) {
         Timeline.Play(dspStart, bpm);
         foreach (var p in Placements) { if (p.Source != null) p.Source.Stop(); p.Scheduled = false; }
@@ -166,6 +226,19 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     }
     public void Tick(double now, double bpm, double nextBeatBoundary, float masterVolume) {
         if (disposed) return;
+        if(savedVocalLoad!=null&&savedVocalLoad.IsCompleted) {
+            var task=savedVocalLoad; savedVocalLoad=null;
+            if(task.IsFaulted) Fail(task.Exception.GetBaseException(),"saved vocal loading");
+            else {
+                try {
+                    var loaded=task.Result; AiVocalWav.RequireTempo(loaded,bpm);
+                    Provider=loaded.IsMock?(IAiVocalProvider)new MockAiVocalProvider():new ElevenLabsAiVocalProvider();
+                    // Provider selection invalidates previous results before attaching decoded audio.
+                    Clip(loaded); RestoreSavedSettings(loaded.Request); Result=loaded;
+                    State="READY TO PREVIEW"; fraction=1; Message="Loaded saved "+loaded.Source+" vocal: "+Path.GetFileName(savedVocalPath)+". No provider calls.";
+                } catch(Exception e) { Fail(e,"saved vocal loading"); }
+            }
+        }
         if (connectionTest != null && connectionTest.IsCompleted) {
             ConnectionStatus = connectionTest.IsFaulted ? "PROXY CONNECTION ERROR: " + AiVocalFailure.Clean(connectionTest.Exception.ToString()) : connectionTest.Result;
             connectionTest = null;
@@ -176,10 +249,17 @@ public sealed class BacardiAiVocalGenerator : IDisposable
         while (progress.TryDequeue(out update)) { State = update.State; fraction = update.Fraction; }
         if (generation != null && generation.IsCompleted) {
             var task = generation; generation = null; cancellation.Dispose(); cancellation = null;
-            if (task.IsCanceled) { State = Result == null ? "READY" : "READY TO PREVIEW"; Message = "Generation cancelled."; }
+            if (task.IsCanceled || generationCancelled || !ReferenceEquals(generationProvider,Provider)) { InvalidateResult(); State = "READY"; Message = "Generation cancelled. Generate new audio before previewing."; }
             else if (task.IsFaulted) { Fail(task.Exception.InnerException, "generation"); }
             else {
-                try { Result = task.Result; Clip(Result); if (replacePlacedOnCompletion && replacePrevious != null) ReplacePlacements(replacePrevious); State = "READY TO PREVIEW"; fraction = 1; Message = Result.Provider; ReleaseUnusedClips(); }
+                try {
+                    var candidate=task.Result;
+                    if(candidate==null || candidate.Source!=SelectedSource || candidate.IsMock!=(SelectedSource=="LOCAL_MOCK"))
+                        throw new InvalidOperationException("Generated audio source does not match selected provider. No mock fallback is allowed.");
+                    Clip(candidate); Result=candidate;
+                    if (replacePlacedOnCompletion && replacePrevious != null) ReplacePlacements(replacePrevious);
+                    State = "READY TO PREVIEW"; fraction = 1; Message = Result.Source+": "+Result.Provider; ReleaseUnusedClips();
+                }
                 catch (Exception e) { Fail(e, "file loading"); }
             }
         }
@@ -221,10 +301,11 @@ public sealed class BacardiAiVocalGenerator : IDisposable
         }
     }
     public void Preview(double bpm) {
-        if (Result == null) throw new InvalidOperationException("Generate a vocal first.");
+        if (!CanPreview) throw new InvalidOperationException("No successfully decoded audio for "+SelectedSource+". Generate a vocal first.");
         AiVocalWav.RequireTempo(Result, bpm);
         preview.Stop(); preview.clip = Clip(Result); preview.pitch = 1; preview.volume = 1;
         reverb.enabled = lightReverb; preview.Play();
+        Debug.Log("AI vocal preview source="+Result.Source+" provider="+Result.Provider+" clip="+preview.clip.name);
     }
     void ReplacePlacements(AiVocalResult previous) {
         foreach (var p in Placements) if (p.Vocal == previous) {
@@ -235,6 +316,8 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     public void StopPreview() { if (preview != null) preview.Stop(); }
     public void AddToSong(int startBar) {
         if (Result == null) throw new InvalidOperationException("Generate a vocal first.");
+        RequireValidPlacements(); string lengthError=PlacementLengthError(Result,startBar);
+        if(lengthError.Length>0) throw new InvalidOperationException(lengthError);
         if (startBar < 1 || startBar > 256) throw new ArgumentException("Start bar must be 1-256.");
         if (Placements.Count >= 16) throw new ArgumentException("Maximum 16 placements. Remove one first.");
         Placements.Add(new Placement { Vocal = Result, StartBar = startBar, Source = NewSource() });
@@ -242,6 +325,10 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     }
     public void Save(bool aligned, double bpm, int startBar, int songBars) {
         if (Result == null || Busy) return;
+        if(aligned&&SongBarsReadOnly) {
+            songBars=SynchronizedSongBars; RequireValidPlacements();
+            if(Placements.Count==0) { string error=PlacementLengthError(Result,startBar); if(error.Length>0) throw new InvalidOperationException(error); }
+        }
         if (startBar < 1 || startBar > 256 || songBars < 1 || songBars > 512)
             throw new ArgumentException("Start bar: 1-256; song length: 1-512 bars.");
         var current = Result;
@@ -255,7 +342,8 @@ public sealed class BacardiAiVocalGenerator : IDisposable
                 current.Request.Bpm.ToString("0.##", CultureInfo.InvariantCulture) + "BPM_" + current.Request.Key + current.Request.Scale.ToUpperInvariant();
             if (!aligned) {
                 string path = Path.Combine(folder, name + ".wav"); AiVocalWav.Write(path, current.Pcm);
-                File.WriteAllText(Path.Combine(folder, "VOCAL_INFO.txt"), AiVocalWav.Info(current)); return path;
+                File.WriteAllText(Path.Combine(folder, "VOCAL_INFO.txt"), AiVocalWav.Info(current));
+                BacardiSavedVocalLoader.WriteMetadata(path,current); return path;
             }
             if (placements.Count == 0) placements.Add(new Placement { Vocal = current, StartBar = startBar });
             int neededBars = songBars;
@@ -291,6 +379,7 @@ public sealed class BacardiAiVocalGenerator : IDisposable
     }
     public string StatusText { get { return State == "ERROR" ? Message : State + " | " + Mathf.RoundToInt(fraction * 100) + "%"; } }
     void Fail(Exception error, string stage) {
+        InvalidateResult();
         var failure = error as AiVocalFailure ?? new AiVocalFailure(stage, 0, error.Message, error);
         State = "ERROR"; Message = failure.UiMessage; fraction = 0;
         Debug.LogError(failure.Diagnostic);
@@ -306,6 +395,7 @@ public sealed class BacardiAiVocalGenerator : IDisposable
         GUILayout.Label(string.Format(CultureInfo.InvariantCulture, "4/4 | Tempo {0:0} BPM | Bar {1} | Beat {2:F2} | Musical beats {3:F2} | Elapsed {4:F2}s",
             bpm, Timeline.BarAt(now), Timeline.BeatInBarAt(now), Timeline.BeatsAt(now), Timeline.ElapsedAt(now)));
         bool enabled = GUI.enabled; GUI.enabled = enabled && !Busy;
+        providerChoice=Provider is MockAiVocalProvider ? 0 : 1;
         int selectedProvider = GUILayout.SelectionGrid(providerChoice, new[] { "MOCK", "REAL AI" }, 2);
         if (selectedProvider != providerChoice) Action(() => {
             Provider = selectedProvider == 0 ? (IAiVocalProvider)new MockAiVocalProvider() : new ElevenLabsAiVocalProvider();
@@ -384,6 +474,13 @@ public sealed class BacardiAiVocalGenerator : IDisposable
         if (GUILayout.Button("SHORT CHANT")) lyrics = Chant;
         GUILayout.EndHorizontal();
         var request = CurrentRequest(bpm);
+        GUI.enabled=enabled&&!Busy;
+        GUILayout.Label("Saved isolated vocal WAV (matching source metadata required)");
+        savedVocalPath=GUILayout.TextField(savedVocalPath);
+        if(GUILayout.Button("LOAD SAVED VOCAL WAV")) Action(()=> {
+            string path=BacardiSavedVocalLoader.Pick(savedVocalPath);
+            if(!string.IsNullOrEmpty(path)) LoadSavedVocal(path,bpm);
+        });
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("GENERATE VOCAL — " + GenerationLyricsSource)) Generate(request);
         if (Event.current.type == EventType.Repaint) GenerateRect = ScreenRect(GUILayoutUtility.GetLastRect());
@@ -391,7 +488,7 @@ public sealed class BacardiAiVocalGenerator : IDisposable
         if (Event.current.type == EventType.Repaint) RegenerateRect = ScreenRect(GUILayoutUtility.GetLastRect());
         GUI.enabled = enabled && generation != null;
         if (GUILayout.Button("CANCEL")) Cancel();
-        GUI.enabled = enabled && !Busy && Result != null;
+        GUI.enabled = enabled && CanPreview;
         if (GUILayout.Button("PREVIEW")) Action(() => Preview(bpm));
         GUI.enabled = enabled;
         if (GUILayout.Button("STOP PREVIEW")) StopPreview();
@@ -401,12 +498,15 @@ public sealed class BacardiAiVocalGenerator : IDisposable
         GUILayout.Label("Start bar", GUILayout.Width(65)); startText = GUILayout.TextField(startText, 3, GUILayout.Width(60));
         if (GUILayout.Button("HOOK 1: 13")) startText = "13";
         if (GUILayout.Button("HOOK 2: 17")) startText = "17";
-        GUILayout.Label("Song bars", GUILayout.Width(70)); songText = GUILayout.TextField(songText, 3, GUILayout.Width(60));
+        GUILayout.Label("Song bars", GUILayout.Width(70));
+        bool songFieldEnabled=GUI.enabled; GUI.enabled=songFieldEnabled&&!SongBarsReadOnly;
+        songText = GUILayout.TextField(songText, 3, GUILayout.Width(60)); GUI.enabled=songFieldEnabled;
         GUI.enabled = enabled && !Busy && Result != null;
         if (GUILayout.Button("ADD TO SONG")) Action(() => AddToSong(Parse(startText, "Start bar")));
         if (GUILayout.Button("SAVE VOCAL WAV")) Action(() => Save(false, bpm, Parse(startText, "Start bar"), Parse(songText, "Song bars")));
         if (GUILayout.Button("EXPORT VOCAL STEM")) Action(() => Save(true, bpm, Parse(startText, "Start bar"), Parse(songText, "Song bars")));
         GUI.enabled = enabled; GUILayout.EndHorizontal();
+        if(PlacementValidationStatus.Length>0) GUILayout.Label(PlacementValidationStatus,new GUIStyle(GUI.skin.label) { wordWrap=true });
         for (int i = 0; i < Placements.Count; i++) {
             var p = Placements[i]; GUILayout.BeginHorizontal();
             GUILayout.Label(p.Vocal.Request.Role + " / Bars " + p.StartBar + "-" + (p.StartBar + p.Vocal.Request.Bars) + " (end exclusive)");
@@ -437,6 +537,7 @@ public sealed class BacardiAiVocalGenerator : IDisposable
             generation.ContinueWith(t => { var ignored = t.Exception; pendingCancellation.Dispose(); }, TaskScheduler.Default);
         }
         if (export != null) export.ContinueWith(t => { var ignored = t.Exception; }, TaskScheduler.Default);
+        if (savedVocalLoad != null) savedVocalLoad.ContinueWith(t => { var ignored = t.Exception; }, TaskScheduler.Default);
     }
 }
 

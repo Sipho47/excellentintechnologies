@@ -65,6 +65,7 @@ public sealed class ElevenLabsAiVocalProvider : IAiVocalProvider {
                     if (job.state == "CANCELLED") throw new OperationCanceledException(token);
                     progress.Report(new AiVocalProgress(job.state, job.progress));
                     if (job.state == "READY") {
+                        if (job.isMock) throw new Exception("REAL AI returned LOCAL_MOCK audio; generation rejected. No mock fallback is allowed.");
                         stage = "download"; progress.Report(new AiVocalProgress("DOWNLOADING...", .9f));
                         byte[] wav;
                         using (var audio = await client.GetAsync(new Uri(endpoint, "jobs/" + jobId + "/audio"), token).ConfigureAwait(false)) {
@@ -78,7 +79,7 @@ public sealed class ElevenLabsAiVocalProvider : IAiVocalProvider {
                         if (pcm.Length != expected) throw new Exception("Proxy vocal duration does not match requested bars.");
                         double peak = 0; foreach (float value in pcm) peak = Math.Max(peak, Math.Abs(value));
                         completed = true;
-                        return new AiVocalResult { Request = request, Provider = job.provider, IsMock = job.isMock,
+                        return new AiVocalResult { Request = request, Provider = job.provider, IsMock = false, Source = "REAL_AI",
                             Pcm = pcm, PeakDb = 20 * Math.Log10(Math.Max(1e-20, peak)),
                             Integrated = BacardiMastering.Measure(pcm, 44100) };
                     }

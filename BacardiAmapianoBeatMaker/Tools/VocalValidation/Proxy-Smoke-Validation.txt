@@ -1,0 +1,1 @@
+PASS actual loopback HTTP health and FFmpeg configuration; generation returns HTTP 503 for missing credentials with no upstream calls.

@@ -1,0 +1,9 @@
+PASS: actual Unity 16-bar routing acceptance (LUFS tolerance 0.2, TP tolerance 0.2 dB, GR tolerance 0.5 dB)
+16 bars / LIVE LUFS-I: -15.0 | ANALYZED LOOP LUFS-I: -14.9 | Difference: -0.2 LU | TP: -1.3 dBTP | Max GR: 2.6 dB
+Capture precision: LIVE=-15.043740, ANALYZED=-14.860887, DIFFERENCE=-0.182853, TP=-1.300000, MAX_GR=2.641070
+Analyzed Gain dB: -0.264 | Live Gain dB: -0.264
+Analyzed Gain Linear: 0.970055 | Live Gain Linear: 0.970055
+Mastering Processor Active: YES | Bypass Mix: 0.000
+Limiter Input Peak: 1.166953 | Limiter Output Peak (sample): 0.852737
+Current GR: 0.001 | Maximum GR: 2.641
+Instance IDs: analysis meter=-1352, live meter=-1352, UI owner=19620, processor=-662703596 | PCM blocks: 1883

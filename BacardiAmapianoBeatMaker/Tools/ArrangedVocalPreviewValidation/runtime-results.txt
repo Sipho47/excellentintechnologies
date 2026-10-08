@@ -1,0 +1,15 @@
+PASS
+PASS instrumental content present in actual arranged preview AudioClip
+PASS REAL_AI vocal PCM present at Bar 13 only, with exact zero vocal contribution before/after placement; separate vocal playback stopped
+PASS 46-bar duration, 120 BPM and stereo channel alignment preserved
+PASS multiple placements and overlaps at Bars 13, 17 and 15 preview correctly
+PASS repeated preview builds a fresh clip without double-summing vocals
+PASS REMOVE is reflected on the next preview; removed PCM is absent
+PASS arranged preview bypasses listener mastering; actual listener buffer unchanged with target gain enabled
+PASS STOP restores previous listener playback state
+PASS prior true state and natural preview completion restore correctly
+PASS tempo mismatch rejected without stale preview playback or listener override
+PASS original instrumental-only export remains sample-exact with vocals placed
+PASS saved arrangement structure, tempo and mastering settings unchanged
+PASS zero provider/API calls or proxy connections
+Synthetic offline fixtures only. PART 8 was not exported or mastered.

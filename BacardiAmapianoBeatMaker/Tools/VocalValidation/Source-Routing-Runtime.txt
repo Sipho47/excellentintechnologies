@@ -1,0 +1,18 @@
+PASS
+PASS provider selection invalidates audio and disables PREVIEW
+PASS REAL AI start invalidates audio and disables PREVIEW
+PASS decoded REAL_AI result is accepted
+PASS PREVIEW AudioClip contains successful REAL_AI PCM
+PASS exact lyrics and all requested settings preserved
+PASS cancellation immediately invalidates current audio
+PASS late success after cancellation cannot revive audio
+PASS fault failure cannot enable PREVIEW or fall back to mock
+PASS sync failure cannot enable PREVIEW or fall back to mock
+PASS mock failure cannot enable PREVIEW or fall back to mock
+PASS empty failure cannot enable PREVIEW or fall back to mock
+PASS nan failure cannot enable PREVIEW or fall back to mock
+PASS provider switch rejects in-flight old-provider result
+PASS explicit LOCAL MOCK selection still generates previewable audio
+PASS switching from mock to real detaches old mock preview clip
+PASS routing tests do not mutate request settings
+Offline fixtures only. No singer API calls. Intelligibility was not tested.
