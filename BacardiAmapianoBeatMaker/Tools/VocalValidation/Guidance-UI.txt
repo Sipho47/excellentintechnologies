@@ -1,1 +1,0 @@
-PASS actual Draw layout at 1920x1080 in MOCK and REAL; visible label, 72px multiline field, 30px preset button, ordering/no overlap; preset handler populates exact preset, unchanged lyrics and request mapping. No generation invoked.

@@ -1,6 +1,0 @@
-PASS offline ElevenLabs contract: correct Music v2.5 composition plan and supplied lyrics; two-stem extraction; FFmpeg conversion; exact 44.1 kHz 24-bit stereo bars; peak-only headroom; credential rejection/no retry.
-THIS IS A SYNTHETIC HTTP/AUDIO FIXTURE, NOT A REAL ELEVENLABS GENERATION.
-PASS exact UTF-8 lyrics: supplied isiZulu hook, accented Latin with CRLF/blank lines/edge spaces, Japanese/Korean/Chinese/Arabic/mixed text, emoji and combining accents.
-PASS strict lyrics and slower phrase density: all toggle combinations with Unicode originals and null/empty/whitespace/populated pronunciation text; exact sung text at fake HTTP boundary; only positive_styles changes; BPM and duration unchanged.
-PASS optional pronunciation guidance: separate JSON field, style-only upstream entry, unchanged lyric text, empty legacy payload, null and size validation.
-PASS optional AI pronunciation text: null/empty/whitespace preserve legacy original payload; populated Unicode reaches fake ElevenLabs HTTP body exactly and changes only chunks[0].text; original lyrics unchanged; independent UTF-8 fields; size validation. No external requests.

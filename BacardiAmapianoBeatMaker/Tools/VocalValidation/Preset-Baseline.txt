@@ -1,2 +1,0 @@
-PASS
-PASS preset click handler from blank and focused edited field; immediate exact value; next and subsequent repaint display exact preset; native TextEditor buffer matches; user keyboard editing works; CurrentRequest matches visible contents; lyrics unchanged. No generation invoked. No ElevenLabs calls.
